@@ -273,7 +273,8 @@ const handleDelete = async (ids: number[]) => {
     }
 
     const idsString = ids.join(',');
-    await request.delete(props.apiUrlDelete, { params: { ids: idsString } });
+    // await request.delete(props.apiUrlDelete, { params: { ids: idsString } });
+    await request.delete(props.apiUrlDelete + '/' + idsString);
     ElMessage.success('删除成功');
 
     if (props.onAfterDelete) {
