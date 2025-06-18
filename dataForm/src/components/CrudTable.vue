@@ -209,7 +209,10 @@ const openDialog = async (mode: 'add' | 'edit', rowData?: any) => {
     if (!validateUrl(props.apiUrlDetail, 'apiUrlDetail')) return;
     dialog.loading = true;
     try {
-      const res: any = await request.get(props.apiUrlDetail, { params: { id: initialData.id } });
+      // const res: any = await request.get(props.apiUrlDetail, { params: { id: initialData.id } });
+
+
+      const res: any = await request.get(props.apiUrlDetail + '/' + initialData.id);
       dialog.data = res.data;
     } finally {
       dialog.loading = false;
