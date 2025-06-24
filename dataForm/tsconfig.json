@@ -1,5 +1,21 @@
 {
   "files": [],
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ESNext",
+    "jsx": "preserve",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client"],
+    "paths":{
+      "@": ["./src"],
+      "@/*": ["./src/*"],
+    }
+  },
+
   "references": [
     {
       "path": "./tsconfig.node.json"

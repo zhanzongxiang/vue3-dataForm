@@ -1,86 +1,60 @@
-import { ref } from 'vue';
-import type { User, UserQuery } from '@/types';
+import request from '@/utils/request';
+import type { User, UserQuery } from '@/types'; // FIX: Ensure path alias is used here as well
 
-// 模拟数据库
-const mockDatabase = ref<User[]>([]);
+// This file is a mock API layer for demonstration.
+// In a real application, these functions would make actual HTTP requests.
 
-// 生成模拟数据
-const generateData = () => {
-    mockDatabase.value = Array.from({ length: 53 }, (_, i) => {
-        const id = i + 1;
-        const roles: User['role'][] = ['admin', 'user', 'guest'];
-        const states = ['CA', 'NY', 'TX', 'FL', 'WA'];
-        const cities = ['Los Angeles', 'New York', 'Houston', 'Miami', 'Seattle'];
-        return {
-            id,
-            name: `用户-${id}`,
-            email: `user${id}@example.com`,
-            role: roles[i % 3],
-            state: states[i % 5],
-            city: cities[i % 5],
-            address: `${100 + i} Bacon St`,
-            createdAt: Date.now() - Math.floor(Math.random() * 1000 * 3600 * 24 * 30),
-        };
-    });
-};
+const mockDatabase: User[] = Array.from({ length: 53 }, (_, i) => ({
+    id: i + 1,
+    name: `用户-${i + 1}`,
+    email: `user${i+1}@example.com`,
+    role: (['admin', 'user', 'guest'] as const)[i % 3],
+    state: 'CA',
+    city: 'Los Angeles',
+    address: `${i + 100} Main St`,
+    createdAt: Date.now() - Math.floor(Math.random() * 1000 * 3600 * 24 * 30),
+}));
 
-// 初始化数据
-generateData();
-
-// 模拟网络延迟
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// 模拟查询 API
-export const mockApiQuery = async (params: UserQuery, pagination: { page: number, pageSize: number }) => {
-    await sleep(500);
-    let data = [...mockDatabase.value];
-
-    if (params.name) {
-        data = data.filter(item => item.name.toLowerCase().includes(params.name!.toLowerCase()));
-    }
-    if (params.role) {
-        data = data.filter(item => item.role === params.role);
-    }
-
+export const mockApiQuery = async (params: { pageNum: number, pageSize: number } & UserQuery) => {
+    await sleep(300);
+    let data = mockDatabase.filter(item => {
+        const nameMatch = params.name ? item.name.includes(params.name) : true;
+        const roleMatch = params.role ? item.role === params.role : true;
+        return nameMatch && roleMatch;
+    });
     const total = data.length;
-    const paginatedData = data.slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize);
-
+    const paginatedData = data.slice((params.pageNum - 1) * params.pageSize, params.pageNum * params.pageSize);
     return { data: paginatedData, total };
 };
 
-// 模拟创建 API
-export const mockApiCreate = async (data: Omit<User, 'id' | 'createdAt'>) => {
-    await sleep(300);
-    const newItem: User = {
-        ...data,
-        id: Date.now(),
-        createdAt: Date.now(),
-    };
-    mockDatabase.value.unshift(newItem);
-    return newItem;
+export const mockApiDetail = async (params: { id: number }) => {
+    await sleep(200);
+    const user = mockDatabase.find(u => u.id === params.id);
+    return { data: user };
 };
 
-// 模拟更新 API
-export const mockApiUpdate = async (id: number, data: Partial<User>) => {
+
+export const mockApiCreate = async (data: Partial<User>) => {
     await sleep(300);
-    const index = mockDatabase.value.findIndex(item => item.id === id);
+    const newUser: User = { id: Date.now(), createdAt: Date.now(), ...data } as User;
+    mockDatabase.unshift(newUser);
+    return { data: newUser };
+};
+
+export const mockApiUpdate = async (data: User) => {
+    await sleep(300);
+    const index = mockDatabase.findIndex(item => item.id === data.id);
     if (index !== -1) {
-        mockDatabase.value[index] = { ...mockDatabase.value[index], ...data };
-        return mockDatabase.value[index];
+        mockDatabase[index] = { ...mockDatabase[index], ...data };
     }
-    throw new Error('Item not found');
+    return { data: mockDatabase[index] };
 };
 
-// 模拟删除 API
-export const mockApiDelete = async (id: number) => {
+export const mockApiDelete = async (params: { ids: string }) => {
     await sleep(300);
-    mockDatabase.value = mockDatabase.value.filter(item => item.id !== id);
-    return true;
-};
-
-// 模拟批量删除 API
-export const mockApiBatchDelete = async (ids: number[]) => {
-    await sleep(300);
-    mockDatabase.value = mockDatabase.value.filter(item => !ids.includes(item.id));
-    return true;
+    const idsToDelete = params.ids.split(',').map(Number);
+    mockDatabase = mockDatabase.filter(item => !idsToDelete.includes(item.id));
+    return { success: true };
 };

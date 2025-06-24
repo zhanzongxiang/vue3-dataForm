@@ -1,6 +1,7 @@
 <template>
-  <div class="crud-table-wrapper">
+  <div :class="wrapperClass">
     <slot name="header"></slot>
+    <!-- Search and Actions Header -->
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
       <el-form :model="searchForm" class="query-form flex flex-nowrap items-center gap-x-4" style="overflow-x: auto; padding-bottom: 8px;">
         <slot name="query-conditions" :search-form="searchForm"></slot>
@@ -22,16 +23,21 @@
       </div>
     </div>
 
+    <!-- Table -->
     <el-table :data="tableData" v-loading="loading" @selection-change="handleSelectionChange" v-bind="$attrs" style="width: 100%;">
+      <!-- Conditional Selection Column -->
       <el-table-column v-if="props.showSelectionColumn" type="selection" width="55" fixed />
+      <!-- Conditional Index Column -->
       <el-table-column v-if="props.showIndexColumn" type="index" label="序号" width="70" fixed />
 
       <slot></slot>
 
+      <!-- Conditional and Slottable Actions Column -->
       <el-table-column v-if="props.showActionsColumn" label="操作" :width="actionsColumnWidth" fixed="right">
         <template #default="scope">
           <div class="flex items-center gap-x-2">
             <slot name="actions" :row="scope.row">
+              <!-- Default action buttons with visibility control -->
               <el-button v-if="props.showEditButton" size="small" type="primary" link @click="openDialog('edit', scope.row)">编辑</el-button>
               <el-popconfirm v-if="props.showDeleteButton" title="确定要删除这条数据吗?" @confirm="handleDelete([scope.row.id])" confirm-button-text="确定" cancel-button-text="取消" width="200">
                 <template #reference><el-button size="small" type="danger" link>删除</el-button></template>
@@ -42,6 +48,7 @@
       </el-table-column>
     </el-table>
 
+    <!-- Pagination -->
     <div v-if="props.showPagination && total > 0" class="flex justify-end mt-[10px]">
       <el-pagination
           v-model:current-page="searchForm.pageNum"
@@ -57,7 +64,8 @@
       />
     </div>
 
-    <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true">
+    <!-- Dialog -->
+    <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true" :custom-class="dialogClass">
       <div v-loading="dialog.loading">
         <slot name="dialog-form-content" :form-data="dialog.data" :mode="dialog.mode">
           <dynamic-form v-if="props.dialogFormConfig.length > 0" :form-config="finalDialogFormConfig" v-model="dialog.data" :ref="el => dialog.formRef = el" :rules="props.dialogFormRules" label-width="80px"/>
@@ -84,14 +92,12 @@ const emit = defineEmits(['open-dialog', 'submit', 'delete']);
 
 // Define Props with URL strings and Lifecycle Hooks
 const props = defineProps({
-  // API URLs
+  theme: { type: String as PropType<'default' | 'large-screen'>, default: 'default' },
   apiUrlQuery: { type: String, required: true },
   apiUrlDetail: { type: String, required: true },
   apiUrlCreate: { type: String, required: true },
   apiUrlUpdate: { type: String, required: true },
   apiUrlDelete: { type: String, required: true },
-
-  // Lifecycle Hooks
   onBeforeQuery: { type: Function as PropType<(params: any) => Promise<any> | any> },
   onAfterQuery: { type: Function as PropType<(data: any[]) => Promise<any[]> | any[]> },
   onBeforeOpenDialog: { type: Function as PropType<(mode: string, data?: any) => Promise<any> | any> },
@@ -100,16 +106,12 @@ const props = defineProps({
   onAfterSubmit: { type: Function as PropType<(mode: string, data: any) => void> },
   onBeforeDelete: { type: Function as PropType<(ids: number[]) => Promise<boolean> | boolean> },
   onAfterDelete: { type: Function as PropType<(ids: number[]) => void> },
-
-  // Column Visibility
   showSelectionColumn: { type: Boolean, default: true },
   showIndexColumn: { type: Boolean, default: true },
   showActionsColumn: { type: Boolean, default: true },
   showEditButton: { type: Boolean, default: true },
   showDeleteButton: { type: Boolean, default: true },
   actionsColumnWidth: { type: Number, default: 120 },
-
-  // Other Props
   dialogWidth: { type: String, default: '50%' },
   initialSearchForm: { type: Object, default: () => ({ pageNum: 1, pageSize: 10 }) },
   showPagination: { type: Boolean, default: true },
@@ -121,6 +123,9 @@ const props = defineProps({
   dialogFormConfig: { type: Array as () => any[], default: () => [] },
   dialogFormRules: { type: Object, default: () => ({}) }
 });
+
+const wrapperClass = computed(() => ['crud-table-wrapper', `theme-${props.theme}`]);
+const dialogClass = computed(() => props.theme === 'large-screen' ? 'large-screen-dialog' : '');
 
 // Helper for URL validation
 const validateUrl = (url: string | undefined, propName: string): boolean => {
@@ -209,10 +214,7 @@ const openDialog = async (mode: 'add' | 'edit', rowData?: any) => {
     if (!validateUrl(props.apiUrlDetail, 'apiUrlDetail')) return;
     dialog.loading = true;
     try {
-      // const res: any = await request.get(props.apiUrlDetail, { params: { id: initialData.id } });
-
-
-      const res: any = await request.get(props.apiUrlDetail + '/' + initialData.id);
+      const res: any = await request.get(props.apiUrlDetail, { params: { id: initialData.id } });
       dialog.data = res.data;
     } finally {
       dialog.loading = false;
@@ -273,8 +275,7 @@ const handleDelete = async (ids: number[]) => {
     }
 
     const idsString = ids.join(',');
-    // await request.delete(props.apiUrlDelete, { params: { ids: idsString } });
-    await request.delete(props.apiUrlDelete + '/' + idsString);
+    await request.delete(props.apiUrlDelete, { params: { ids: idsString } });
     ElMessage.success('删除成功');
 
     if (props.onAfterDelete) {
@@ -299,6 +300,7 @@ onMounted(fetchData);
 defineExpose({
   refresh: fetchData,
   search: handleSearch,
-  handleDelete
+  handleDelete,
+  openDialog,
 });
 </script>
