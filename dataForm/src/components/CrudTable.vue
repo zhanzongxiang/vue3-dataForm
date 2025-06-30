@@ -3,7 +3,8 @@
     <slot name="header"></slot>
     <!-- Search and Actions Header -->
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-      <el-form :model="searchForm" class="query-form flex flex-nowrap items-center gap-x-4" style="overflow-x: auto; padding-bottom: 8px;">
+      <el-form :model="searchForm" class="query-form flex flex-nowrap items-center gap-x-4"
+               style="overflow-x: auto; padding-bottom: 8px;">
         <slot name="query-conditions" :search-form="searchForm"></slot>
         <el-form-item class="!mr-0 flex-shrink-0">
           <div class="flex items-center gap-x-2">
@@ -24,23 +25,38 @@
     </div>
 
     <!-- Table -->
-    <el-table :data="tableData" v-loading="loading" @selection-change="handleSelectionChange" v-bind="$attrs" style="width: 100%;">
-      <!-- Conditional Selection Column -->
-      <el-table-column v-if="props.showSelectionColumn" type="selection" width="55" fixed />
-      <!-- Conditional Index Column -->
-      <el-table-column v-if="props.showIndexColumn" type="index" label="序号" width="70" fixed />
+    <el-table :data="tableData" v-loading="loading" @selection-change="handleSelectionChange" v-bind="$attrs"
+              style="width: 100%;">
+      <el-table-column v-if="props.showSelectionColumn" type="selection" width="55" fixed/>
+      <el-table-column v-if="props.showIndexColumn" type="index" label="序号" width="70" fixed/>
 
-      <slot></slot>
+      <template v-for="column in props.columns" :key="column.prop">
+        <el-table-column
+            :prop="column.prop"
+            :label="column.label"
+            :width="column.width"
+            :sortable="column.sortable || false"
+            v-bind="column.attrs"
+        >
+          <template v-if="column.slot" #default="scope">
+            <slot :name="column.slot" :row="scope.row"></slot>
+          </template>
+        </el-table-column>
+      </template>
 
-      <!-- Conditional and Slottable Actions Column -->
-      <el-table-column v-if="props.showActionsColumn" label="操作" :width="actionsColumnWidth" fixed="right">
+      <el-table-column v-if="props.showActionsColumn" label="操作" :width="actionsColumnWidth">
         <template #default="scope">
-          <div class="flex items-center gap-x-2">
+          <div v-if="scope.row" class="flex items-center gap-x-2">
             <slot name="actions" :row="scope.row">
-              <!-- Default action buttons with visibility control -->
-              <el-button v-if="props.showEditButton" size="small" type="primary" link @click="openDialog('edit', scope.row)">编辑</el-button>
-              <el-popconfirm v-if="props.showDeleteButton" title="确定要删除这条数据吗?" @confirm="handleDelete([scope.row.id])" confirm-button-text="确定" cancel-button-text="取消" width="200">
-                <template #reference><el-button size="small" type="danger" link>删除</el-button></template>
+              <el-button v-if="props.showEditButton" size="small" type="primary" link
+                         @click="openDialog('edit', scope.row)">编辑
+              </el-button>
+              <el-popconfirm v-if="props.showDeleteButton" title="确定要删除这条数据吗?"
+                             @confirm="handleDelete([scope.row.id])" confirm-button-text="确定"
+                             cancel-button-text="取消" width="200">
+                <template #reference>
+                  <el-button size="small" type="danger" link>删除</el-button>
+                </template>
               </el-popconfirm>
             </slot>
           </div>
@@ -49,7 +65,7 @@
     </el-table>
 
     <!-- Pagination -->
-    <div v-if="props.showPagination && total > 0" class="flex justify-end mt-[10px]">
+    <div v-if="props.showPagination && total > 0" class="flex justify-end mt-3">
       <el-pagination
           v-model:current-page="searchForm.pageNum"
           v-model:page-size="searchForm.pageSize"
@@ -65,10 +81,13 @@
     </div>
 
     <!-- Dialog -->
-    <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true" :custom-class="dialogClass">
+    <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true"
+               :custom-class="dialogClass">
       <div v-loading="dialog.loading">
         <slot name="dialog-form-content" :form-data="dialog.data" :mode="dialog.mode">
-          <dynamic-form v-if="props.dialogFormConfig.length > 0" :form-config="finalDialogFormConfig" v-model="dialog.data" :ref="el => dialog.formRef = el" :rules="props.dialogFormRules" label-width="80px"/>
+          <dynamic-form v-if="props.dialogFormConfig.length > 0" :form-config="finalDialogFormConfig"
+                        v-model="dialog.data" :ref="el => dialog.formRef = el" :rules="props.dialogFormRules"
+                        label-width="80px"/>
         </slot>
       </div>
       <template #footer>
@@ -82,8 +101,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, PropType } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import {ref, reactive, computed, onMounted, PropType} from 'vue';
+import {ElMessage, ElMessageBox} from 'element-plus';
 import DynamicForm from './DynamicForm.vue';
 import request from '@/utils/request';
 
@@ -92,36 +111,41 @@ const emit = defineEmits(['open-dialog', 'submit', 'delete']);
 
 // Define Props with URL strings and Lifecycle Hooks
 const props = defineProps({
-  theme: { type: String as PropType<'default' | 'large-screen'>, default: 'default' },
-  apiUrlQuery: { type: String, required: true },
-  apiUrlDetail: { type: String, required: true },
-  apiUrlCreate: { type: String, required: true },
-  apiUrlUpdate: { type: String, required: true },
-  apiUrlDelete: { type: String, required: true },
-  onBeforeQuery: { type: Function as PropType<(params: any) => Promise<any> | any> },
-  onAfterQuery: { type: Function as PropType<(data: any[]) => Promise<any[]> | any[]> },
-  onBeforeOpenDialog: { type: Function as PropType<(mode: string, data?: any) => Promise<any> | any> },
-  onAfterOpenDialog: { type: Function as PropType<(mode: string, data: any) => void> },
-  onBeforeSubmit: { type: Function as PropType<(data: any) => Promise<any> | any> },
-  onAfterSubmit: { type: Function as PropType<(mode: string, data: any) => void> },
-  onBeforeDelete: { type: Function as PropType<(ids: number[]) => Promise<boolean> | boolean> },
-  onAfterDelete: { type: Function as PropType<(ids: number[]) => void> },
-  showSelectionColumn: { type: Boolean, default: true },
-  showIndexColumn: { type: Boolean, default: true },
-  showActionsColumn: { type: Boolean, default: true },
-  showEditButton: { type: Boolean, default: true },
-  showDeleteButton: { type: Boolean, default: true },
-  actionsColumnWidth: { type: Number, default: 120 },
-  dialogWidth: { type: String, default: '50%' },
-  initialSearchForm: { type: Object, default: () => ({ pageNum: 1, pageSize: 10 }) },
-  showPagination: { type: Boolean, default: true },
-  pageSizes: { type: Array, default: () => [10, 20, 50, 100] },
-  paginationLayout: { type: String, default: 'total, sizes, prev, pager, next, jumper' },
-  paginationBackground: { type: Boolean, default: true },
-  paginationSmall: { type: Boolean, default: false },
-  paginationHideOnSinglePage: { type: Boolean, default: false },
-  dialogFormConfig: { type: Array as () => any[], default: () => [] },
-  dialogFormRules: { type: Object, default: () => ({}) }
+  theme: {type: String as PropType<'default' | 'large-screen'>, default: 'default'},
+  apiUrlQuery: {type: String, required: true},
+  apiUrlDetail: {type: String, required: true},
+  apiUrlCreate: {type: String, required: true},
+  apiUrlUpdate: {type: String, required: true},
+  apiUrlDelete: {type: String, required: true},
+  // 新增 columns prop，用于定义表格列
+  columns: {
+    type: Array as PropType<any[]>,
+    default: () => []
+  },
+  onBeforeQuery: {type: Function as PropType<(params: any) => Promise<any> | any>},
+  onAfterQuery: {type: Function as PropType<(data: any[]) => Promise<any[]> | any[]>},
+  onBeforeOpenDialog: {type: Function as PropType<(mode: string, data?: any) => Promise<any> | any>},
+  onAfterOpenDialog: {type: Function as PropType<(mode: string, data: any) => void>},
+  onBeforeSubmit: {type: Function as PropType<(data: any) => Promise<any> | any>},
+  onAfterSubmit: {type: Function as PropType<(mode: string, data: any) => void>},
+  onBeforeDelete: {type: Function as PropType<(ids: number[]) => Promise<boolean> | boolean>},
+  onAfterDelete: {type: Function as PropType<(ids: number[]) => void>},
+  showSelectionColumn: {type: Boolean, default: true},
+  showIndexColumn: {type: Boolean, default: true},
+  showActionsColumn: {type: Boolean, default: true},
+  showEditButton: {type: Boolean, default: true},
+  showDeleteButton: {type: Boolean, default: true},
+  actionsColumnWidth: {type: Number, default: 120},
+  dialogWidth: {type: String, default: '50%'},
+  initialSearchForm: {type: Object, default: () => ({pageNum: 1, pageSize: 10})},
+  showPagination: {type: Boolean, default: true},
+  pageSizes: {type: Array, default: () => [10, 20, 50, 100]},
+  paginationLayout: {type: String, default: 'total, sizes, prev, pager, next, jumper'},
+  paginationBackground: {type: Boolean, default: true},
+  paginationSmall: {type: Boolean, default: false},
+  paginationHideOnSinglePage: {type: Boolean, default: false},
+  dialogFormConfig: {type: Array as () => any[], default: () => []},
+  dialogFormRules: {type: Object, default: () => ({})}
 });
 
 const wrapperClass = computed(() => ['crud-table-wrapper', `theme-${props.theme}`]);
@@ -137,19 +161,26 @@ const validateUrl = (url: string | undefined, propName: string): boolean => {
 };
 
 // Component State
-const searchForm = reactive({ pageNum: 1, pageSize: 10, ...props.initialSearchForm });
+const searchForm = reactive({pageNum: 1, pageSize: 10, ...props.initialSearchForm});
 const tableData = ref([]);
 const total = ref(0);
 const loading = ref(false);
 const selections = ref<any[]>([]);
-const dialog = reactive<{ visible: boolean; loading: boolean; submitting: boolean; mode: 'add' | 'edit'; data: Record<string, any>; formRef: any; }>({ visible: false, loading: false, submitting: false, mode: 'add', data: {}, formRef: null });
+const dialog = reactive<{
+  visible: boolean;
+  loading: boolean;
+  submitting: boolean;
+  mode: 'add' | 'edit';
+  data: Record<string, any>;
+  formRef: any;
+}>({visible: false, loading: false, submitting: false, mode: 'add', data: {}, formRef: null});
 
 // Computed Properties
 const dialogTitle = computed(() => (dialog.mode === 'add' ? '新增' : '编辑'));
 const finalDialogFormConfig = computed(() => {
   if (dialog.mode === 'add') return props.dialogFormConfig.filter(item => item.prop !== 'id');
   const editConfig = [...props.dialogFormConfig.filter(item => item.prop !== 'id')];
-  if (!editConfig.some(i => i.prop === 'id')) editConfig.push({ type: 'input-disabled', prop: 'id', label: '用户ID' });
+  if (!editConfig.some(i => i.prop === 'id')) editConfig.push({type: 'input-disabled', prop: 'id', label: '用户ID'});
   return editConfig;
 });
 
@@ -158,12 +189,12 @@ const fetchData = async () => {
   if (!validateUrl(props.apiUrlQuery, 'apiUrlQuery')) return;
   loading.value = true;
   try {
-    let finalParams = { ...searchForm };
+    let finalParams = {...searchForm};
     if (props.onBeforeQuery) {
       finalParams = await props.onBeforeQuery(finalParams);
     }
 
-    const res: any = await request.get(props.apiUrlQuery, { params: finalParams });
+    const res: any = await request.get(props.apiUrlQuery, {params: finalParams});
 
     if (res && Array.isArray(res.data) && typeof res.total === 'number') {
       let processedData = res.data;
@@ -190,7 +221,7 @@ const handleSearch = () => {
 };
 
 const handleClearSearch = () => {
-  const { pageNum, pageSize, ...initialFilters } = props.initialSearchForm;
+  const {pageNum, pageSize, ...initialFilters} = props.initialSearchForm;
   Object.keys(searchForm).forEach(key => {
     if (key !== 'pageNum' && key !== 'pageSize') delete (searchForm as any)[key];
   });
@@ -198,10 +229,12 @@ const handleClearSearch = () => {
   handleSearch();
 };
 
-const handleSelectionChange = (val: any[]) => { selections.value = val; };
+const handleSelectionChange = (val: any[]) => {
+  selections.value = val;
+};
 
 const openDialog = async (mode: 'add' | 'edit', rowData?: any) => {
-  let initialData = mode === 'add' ? { role: 'user' } : { ...rowData };
+  let initialData = mode === 'add' ? {role: 'user'} : {...rowData};
   if (props.onBeforeOpenDialog) {
     const processedData = await props.onBeforeOpenDialog(mode, initialData);
     if (processedData) initialData = processedData;
@@ -214,21 +247,21 @@ const openDialog = async (mode: 'add' | 'edit', rowData?: any) => {
     if (!validateUrl(props.apiUrlDetail, 'apiUrlDetail')) return;
     dialog.loading = true;
     try {
-      const res: any = await request.get(props.apiUrlDetail, { params: { id: initialData.id } });
+      const res: any = await request.get(props.apiUrlDetail, {params: {id: initialData.id}});
       dialog.data = res.data;
     } finally {
       dialog.loading = false;
       if (props.onAfterOpenDialog) {
         props.onAfterOpenDialog(mode, dialog.data);
       }
-      emit('open-dialog', { mode, data: dialog.data });
+      emit('open-dialog', {mode, data: dialog.data});
     }
   } else {
     dialog.data = initialData;
     if (props.onAfterOpenDialog) {
       props.onAfterOpenDialog(mode, dialog.data);
     }
-    emit('open-dialog', { mode, data: dialog.data });
+    emit('open-dialog', {mode, data: dialog.data});
   }
 };
 
@@ -236,7 +269,7 @@ const handleDialogSubmit = async () => {
   try {
     if (dialog.formRef) await dialog.formRef.validate();
 
-    let finalData = { ...dialog.data };
+    let finalData = {...dialog.data};
     if (props.onBeforeSubmit) {
       finalData = await props.onBeforeSubmit(finalData);
     }
@@ -255,7 +288,7 @@ const handleDialogSubmit = async () => {
     if (props.onAfterSubmit) {
       props.onAfterSubmit(dialog.mode, finalData);
     }
-    emit('submit', { mode: dialog.mode, data: finalData });
+    emit('submit', {mode: dialog.mode, data: finalData});
 
     dialog.visible = false;
     fetchData();
@@ -275,7 +308,7 @@ const handleDelete = async (ids: number[]) => {
     }
 
     const idsString = ids.join(',');
-    await request.delete(props.apiUrlDelete, { params: { ids: idsString } });
+    await request.delete(props.apiUrlDelete, {params: {ids: idsString}});
     ElMessage.success('删除成功');
 
     if (props.onAfterDelete) {
@@ -292,8 +325,14 @@ const handleDelete = async (ids: number[]) => {
   }
 };
 
-const handleSizeChange = (val: number) => { searchForm.pageSize = val; handleSearch(); };
-const handleCurrentChange = (val: number) => { searchForm.pageNum = val; fetchData(); };
+const handleSizeChange = (val: number) => {
+  searchForm.pageSize = val;
+  handleSearch();
+};
+const handleCurrentChange = (val: number) => {
+  searchForm.pageNum = val;
+  fetchData();
+};
 
 onMounted(fetchData);
 

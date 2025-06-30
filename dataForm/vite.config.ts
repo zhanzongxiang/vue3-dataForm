@@ -43,5 +43,16 @@ export default defineConfig({
         }
       }
     }
-  }
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://192.168.1.125:9201',
+        changeOrigin: true,
+        ws: true,
+        hotOnly: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
+  },
 })

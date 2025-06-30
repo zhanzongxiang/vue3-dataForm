@@ -13,11 +13,11 @@
           <crud-table
               ref="crudTableRefDefault"
               theme="default"
-              :api-url-query="'/api/users'"
-              :api-url-detail="'/api/users/detail'"
-              :api-url-create="'/api/users'"
-              :api-url-update="'/api/users'"
-              :api-url-delete="'/api/users'"
+              :api-url-query="'/api/paper/list'"
+              :api-url-detail="'/api/paper'"
+              :api-url-create="'/api/paper'"
+              :api-url-update="'/api/paper'"
+              :api-url-delete="'/api/paper'"
               row-key="id"
               :initial-search-form="{ pageNum: 1, pageSize: 5 }"
           >
