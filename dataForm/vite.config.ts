@@ -18,6 +18,9 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
+  commonjsOptions: {
+    esmExternals: true
+  },
   build: {
     // 打包输出的目录
     outDir: 'dist',
@@ -47,12 +50,14 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://192.168.1.125:9201',
+        // target: 'http://192.168.1.102:9201',
+        target: 'http://10.111.128.136:9201/', // 周超
+        // target: 'http://10.111.128.130:8081', //李聪
         changeOrigin: true,
         ws: true,
         hotOnly: true,
         rewrite: (path) => path.replace(/^\/api/, '')
-      }
+      },
     }
   },
 })
