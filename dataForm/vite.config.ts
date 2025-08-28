@@ -50,8 +50,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        // target: 'http://192.168.1.102:9201',
-        target: 'http://10.111.128.136:9201/', // 周超
+        target: 'http://10.111.127.220/api',
+        // target: 'http://10.111.128.136:9202/', // 周超
         // target: 'http://10.111.128.130:8081', //李聪
         changeOrigin: true,
         ws: true,

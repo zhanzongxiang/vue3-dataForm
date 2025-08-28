@@ -1,5 +1,5 @@
 <template>
-  <div :class="wrapperClass">
+  <div :class="wrapperClass" class="crud-table-container" style="width: 100%; height: 100%">
     <slot name="header"></slot>
     <div v-if="props.showSearchSection" class="flex flex-wrap items-center justify-between gap-4 mb-6">
       <el-form :model="searchForm" class="query-form flex flex-nowrap items-center gap-x-4"
@@ -8,8 +8,10 @@
         <el-form-item class="!mr-0 flex-shrink-0">
           <div class="flex items-center gap-x-2">
             <slot name="query-left"></slot>
-            <el-button type="primary" @click="handleSearch" :loading="loading">搜索</el-button>
-            <el-button @click="handleClearSearch">清空</el-button>
+            <template v-if="props.showSearchActionButtons">
+              <el-button type="primary" @click="handleSearch" :loading="loading">搜索</el-button>
+              <el-button @click="handleClearSearch">清空</el-button>
+            </template>
             <slot name="query-right"></slot>
           </div>
         </el-form-item>
@@ -23,10 +25,31 @@
       </div>
     </div>
 
-    <el-table :data="tableData" v-loading="loading" @selection-change="handleSelectionChange" v-bind="$attrs"
+    <el-table :data="tableData" v-loading="loading" :element-loading-text="props.loadingText"
+              :element-loading-background="props.loadingBackground" @selection-change="handleSelectionChange"
+              v-bind="$attrs"
               style="width: 100%; margin-bottom: 1.5rem">
       <el-table-column v-if="props.showSelectionColumn" type="selection" width="55" fixed/>
       <el-table-column v-if="props.showIndexColumn" type="index" label="序号" width="70" fixed/>
+
+      <template v-for="column in props.columns" :key="column.prop">
+        <el-table-column
+            :prop="column.prop"
+            :label="column.label"
+            :width="column.width"
+            :sortable="column.sortable || false"
+            v-bind="column.attrs"
+        >
+          <template #header>
+            <TableHeaderWithTooltip v-if="column.headerTooltip" :label="column.label"/>
+            <span v-else>{{ column.label }}</span>
+          </template>
+
+          <template v-if="column.slot" #default="scope">
+            <slot :name="column.slot" :row="scope.row"></slot>
+          </template>
+        </el-table-column>
+      </template>
 
       <template v-for="column in props.columns" :key="column.prop">
         <el-table-column
@@ -71,7 +94,6 @@
       </el-table-column>
     </el-table>
 
-    <!-- Pagination -->
     <div v-if="props.showPagination && total > 0" class="flex justify-end">
       <el-pagination
           v-model:current-page="searchForm.pageNum"
@@ -87,7 +109,6 @@
       />
     </div>
 
-    <!-- Dialog -->
     <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true"
                :custom-class="dialogClass">
       <div v-loading="dialog.loading">
@@ -108,10 +129,11 @@
 </template>
 
 <script setup lang="ts">
-import {ref, reactive, computed, onMounted, PropType} from 'vue';
-import {ElMessage, ElMessageBox} from 'element-plus';
+import {computed, onMounted, PropType, reactive, ref} from 'vue';
+import {ElMessage} from 'element-plus';
 import DynamicForm from './DynamicForm.vue';
 import request from '@/utils/request';
+import TableHeaderWithTooltip from './TableHeaderWithTooltip.vue';
 
 // --- 1. 组件事件定义 ---
 // 定义组件向外触发的自定义事件，允许父组件监听这些关键操作的完成时机。
@@ -125,7 +147,7 @@ const props = defineProps({
    * @type {'default' | 'large-screen'}
    */
   theme: {type: String as PropType<'default' | 'large-screen'>, default: 'default'},
-  customClass: { type: String, default: '' },
+  customClass: {type: String, default: ''},
   // API 相关配置
   apiUrlQuery: {type: String, required: true},
   apiUrlDetail: {type: String, required: true},
@@ -133,10 +155,31 @@ const props = defineProps({
   apiUrlUpdate: {type: String, required: true},
   apiUrlDelete: {type: String, required: true},
 
-  showSearchSection: { type: Boolean, default: true }, // ✨ 新增：控制搜索区域显隐
+  // ✨ [新增] Loading 状态相关配置
+  /**
+   * @description 加载数据时显示的提示文字
+   * @type {String}
+   */
+  loadingText: {
+    type: String,
+    default: '加载中…' // 默认为‘加载中…’
+  },
+  /**
+   * @description 遮罩层的背景色 (CSS color)
+   * @type {String}
+   */
+  loadingBackground: {
+    type: String,
+    default: 'rgba(0, 0, 0, 0.3)' // 默认为 rgba(0, 0, 0, 0.3)
+  },
+
+  showSearchSection: {type: Boolean, default: true},
+
+  // ✨ [新增] 控制搜索/清空按钮的显示
+  showSearchActionButtons: {type: Boolean, default: true},
 
   // 控制新增按钮
-  showNewBtn: { type: Boolean, default: true },
+  showNewBtn: {type: Boolean, default: true},
 
   // 表格列定义，通过配置数组动态渲染，比 slot 更灵活。
   columns: {
@@ -160,7 +203,6 @@ const props = defineProps({
   showActionsColumn: {type: Boolean, default: true},
   showEditButton: {type: Boolean, default: true},
   showDeleteButton: {type: Boolean, default: true},
-  showNewBtn: {type: Boolean, default: true},
 
   // UI 定制化配置
   actionsColumnWidth: {type: [String, Number], default: 120},
@@ -177,7 +219,13 @@ const props = defineProps({
 
   // 弹窗表单配置
   dialogFormConfig: {type: Array as () => any[], default: () => []},
-  dialogFormRules: {type: Object, default: () => ({})}
+  dialogFormRules: {type: Object, default: () => ({})},
+  /**
+   * @description 是否以 multipart/form-data 格式提交表单。
+   * 适用于需要上传文件的场景。
+   * @type {Boolean}
+   */
+  submitAsFormData: {type: Boolean, default: false},
 });
 
 // --- 3. 动态计算属性 (Computed) ---
@@ -206,38 +254,55 @@ const validateUrl = (url: string | undefined, propName: string): boolean => {
 // [新增] 抽离出核心提交逻辑，并设置为 async
 const submit = async (mode: 'add' | 'edit', data: Record<string, any>) => {
   try {
-    let finalData = { ...data };
+    // 步骤 1: 运行 onBeforeSubmit 钩子
+    let finalData = {...data};
     if (props.onBeforeSubmit) {
       finalData = await props.onBeforeSubmit(finalData);
     }
 
-    dialog.submitting = true; // 依然可以利用内部的 submitting 状态来显示 loading
+    // 步骤 2: 根据 submitAsFormData Prop 决定是否转换数据
+    let dataToSend: any = finalData;
+
+    if (props.submitAsFormData) {
+      const formData = new FormData();
+      for (const key in finalData) {
+        if (Object.prototype.hasOwnProperty.call(finalData, key)) {
+          const value = finalData[key];
+          formData.append(key, value ?? '');
+        }
+      }
+      dataToSend = formData;
+    }
+
+    // 步骤 3: 设置提交状态并发起请求
+    dialog.submitting = true;
     if (mode === 'add') {
-      if (!validateUrl(props.apiUrlCreate, 'apiUrlCreate')) return;
-      await request.post(props.apiUrlCreate, finalData);
+      if (!validateUrl(props.apiUrlCreate, 'apiUrlCreate')) throw new Error('apiUrlCreate is not configured.');
+      await request.post(props.apiUrlCreate, dataToSend);
       ElMessage.success('新增成功');
-    } else {
-      if (!validateUrl(props.apiUrlUpdate, 'apiUrlUpdate')) return;
-      await request.put(props.apiUrlUpdate, finalData);
+    } else { // edit mode
+      if (!validateUrl(props.apiUrlUpdate, 'apiUrlUpdate')) throw new Error('apiUrlUpdate is not configured.');
+      await request.put(props.apiUrlUpdate, dataToSend);
       ElMessage.success('更新成功');
     }
 
+    // 步骤 4: 运行 onAfterSubmit 钩子并触发事件
     if (props.onAfterSubmit) {
       props.onAfterSubmit(mode, finalData);
     }
-    emit('submit', { mode, data: finalData });
+    emit('submit', {mode, data: finalData});
 
-    // 如果内部弹窗是打开的，就关闭它
+    // 步骤 5: 清理并刷新
     if (dialog.visible) {
       dialog.visible = false;
     }
     fetchData(); // 刷新表格
-    return Promise.resolve(); // 返回一个 resolved Promise
+    return Promise.resolve(); // 表示成功
   } catch (error) {
-    console.log('Submit error:', error);
-    return Promise.reject(error); // 返回一个 rejected Promise
+    console.error('Submit failed:', error);
+    return Promise.reject(error); // 表示失败
   } finally {
-    dialog.submitting = false;
+    dialog.submitting = false; // 无论成功失败，都重置提交状态
   }
 };
 
@@ -299,8 +364,8 @@ const fetchData = async () => {
     // 发起 GET 请求
     const res: any = await request.get(props.apiUrlQuery, {params: finalParams});
 
-    // 校验返回数据格式是否符合预期 { data: [], total: number }
-    if (res && Array.isArray(res.data.rows) && typeof res.data.total === 'number') {
+    // 校验返回数据格式是否符合预期 { data: { rows: [], total: number } }
+    if (res && res.data && Array.isArray(res.data.rows) && typeof res.data.total === 'number') {
       // 允许在数据渲染前通过 onAfterQuery 钩子格式化数据
       let processedData = res.data.rows;
       if (props.onAfterQuery) {
@@ -309,7 +374,7 @@ const fetchData = async () => {
       tableData.value = processedData;
       total.value = res.data.total;
     } else {
-      console.warn('API response is not in the expected { data: [], total: 0 } format.');
+      console.warn('API response is not in the expected { data: { rows: [], total: 0 } } format.');
       tableData.value = [];
       total.value = 0;
     }
@@ -360,10 +425,10 @@ const openDialog = async (mode: 'add' | 'edit', dataPayload?: any) => {
   let initialData;
   if (mode === 'add') {
     // 如果是新增模式，且外部传入了数据对象，则使用它；否则使用默认值
-    initialData = dataPayload ? { ...dataPayload } : { role: 'user' };
+    initialData = dataPayload ? {...dataPayload} : {role: 'user'};
   } else {
     // 编辑模式下，dataPayload 就是行数据
-    initialData = { ...dataPayload };
+    initialData = {...dataPayload};
   }
 
   // 2. onBeforeOpenDialog 钩子仍然可以对 initialData 进行最后修改
@@ -380,21 +445,21 @@ const openDialog = async (mode: 'add' | 'edit', dataPayload?: any) => {
     if (!validateUrl(props.apiUrlDetail, 'apiUrlDetail')) return;
     dialog.loading = true;
     try {
-      const res: any = await request.get(props.apiUrlDetail, { params: { id: initialData.id } });
-      dialog.data = res.data;
+      const res: any = await request.get(props.apiUrlDetail + "/" + initialData.id.toString());
+      dialog.data = res.data.data;
     } finally {
       dialog.loading = false;
       if (props.onAfterOpenDialog) {
         props.onAfterOpenDialog(mode, dialog.data);
       }
-      emit('open-dialog', { mode, data: dialog.data });
+      emit('open-dialog', {mode, data: dialog.data});
     }
   } else { // 新增模式
     dialog.data = initialData; // 直接使用处理后的 initialData
     if (props.onAfterOpenDialog) {
       props.onAfterOpenDialog(mode, dialog.data);
     }
-    emit('open-dialog', { mode, data: dialog.data });
+    emit('open-dialog', {mode, data: dialog.data});
   }
 };
 
@@ -403,12 +468,62 @@ const openDialog = async (mode: 'add' | 'edit', dataPayload?: any) => {
  */
 const handleDialogSubmit = async () => {
   try {
-    // 内部表单的验证依然保留
     if (dialog.formRef) await dialog.formRef.validate();
-    // 调用新的核心提交方法
-    await submit(dialog.mode, dialog.data);
-  } catch (validationError) {
-    console.log('Validation failed:', validationError);
+
+    let finalData = {...dialog.data};
+    if (props.onBeforeSubmit) {
+      finalData = await props.onBeforeSubmit(finalData);
+    }
+
+    // --- 修改开始 ---
+
+    // 声明一个变量来存储最终要发送的数据
+    let dataToSend: any = finalData;
+
+    // 如果 submitAsFormData prop 为 true，则将数据转换为 FormData
+    if (props.submitAsFormData) {
+
+      const formData = new FormData();
+      for (const key in finalData) {
+        // 确保只添加对象自身的属性
+        if (Object.prototype.hasOwnProperty.call(finalData, key)) {
+          const value = finalData[key];
+          // FormData 可以处理 null, undefined, File 对象等
+          // 这里我们做个简单处理，如果值为 null 或 undefined，转换为空字符串
+          formData.append(key, value ?? '');
+        }
+      }
+      dataToSend = formData;
+      debugger
+
+    }
+
+    // --- 修改结束 ---
+
+    dialog.submitting = true;
+    if (dialog.mode === 'add') {
+      if (!validateUrl(props.apiUrlCreate, 'apiUrlCreate')) return;
+      // 使用 dataToSend 变量进行提交
+      await request.post(props.apiUrlCreate, dataToSend);
+      ElMessage.success('新增成功');
+    } else {
+      if (!validateUrl(props.apiUrlUpdate, 'apiUrlUpdate')) return;
+      // 使用 dataToSend 变量进行提交
+      await request.put(props.apiUrlUpdate, dataToSend);
+      ElMessage.success('更新成功');
+    }
+
+    if (props.onAfterSubmit) {
+      props.onAfterSubmit(dialog.mode, finalData); // 钩子函数仍然传递原始对象
+    }
+    emit('submit', {mode: dialog.mode, data: finalData}); // 事件仍然传递原始对象
+
+    dialog.visible = false;
+    fetchData();
+  } catch (error) {
+    console.log('Submit error or validation failed:', error);
+  } finally {
+    dialog.submitting = false;
   }
 };
 
@@ -478,3 +593,12 @@ defineExpose({
   submit                // 手动提交
 });
 </script>
+
+<style scoped>
+.crud-table-container {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+</style>
