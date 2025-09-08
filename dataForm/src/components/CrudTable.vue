@@ -1,100 +1,91 @@
 <template>
-  <div :class="wrapperClass" class="crud-table-container" style="width: 100%; height: 100%">
-    <slot name="header"></slot>
-    <div v-if="props.showSearchSection" class="flex flex-wrap items-center justify-between gap-4 mb-6">
-      <el-form :model="searchForm" class="query-form flex flex-nowrap items-center gap-x-4"
-               style="overflow-x: auto; padding-bottom: 8px;">
-        <slot name="query-conditions" :search-form="searchForm"></slot>
-        <el-form-item class="!mr-0 flex-shrink-0">
-          <div class="flex items-center gap-x-2">
-            <slot name="query-left"></slot>
-            <template v-if="props.showSearchActionButtons">
-              <el-button type="primary" @click="handleSearch" :loading="loading">搜索</el-button>
-              <el-button @click="handleClearSearch">清空</el-button>
-            </template>
-            <slot name="query-right"></slot>
-          </div>
-        </el-form-item>
-      </el-form>
-      <div class="flex items-center gap-x-3 action-buttons flex-shrink-0">
-        <slot name="action-left" :selections="selections"></slot>
-        <slot name="add-button-content">
-          <el-button v-if="props.showNewBtn" type="success" @click="openDialog('add')">新增</el-button>
-        </slot>
-        <slot name="action-right"></slot>
+  <div :class="wrapperClass" class="crud-table-container">
+
+    <div v-if="props.showSearchSection" class="search-section-wrapper">
+      <slot name="header"></slot>
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <el-form :model="searchForm" class="query-form flex flex-nowrap items-center gap-x-4"
+                 style="overflow-x: auto; padding-bottom: 8px;">
+          <slot name="query-conditions" :search-form="searchForm"></slot>
+          <el-form-item class="!mr-0 flex-shrink-0">
+            <div class="flex items-center gap-x-2">
+              <slot name="query-left"></slot>
+              <template v-if="props.showSearchActionButtons">
+                <el-button type="primary" @click="handleSearch" :loading="loading">搜索</el-button>
+                <el-button @click="handleClearSearch">清空</el-button>
+              </template>
+              <slot name="query-right"></slot>
+            </div>
+          </el-form-item>
+        </el-form>
+        <div class="flex items-center gap-x-3 action-buttons flex-shrink-0">
+          <slot name="action-left" :selections="selections"></slot>
+          <slot name="add-button-content">
+            <el-button v-if="props.showNewBtn" type="success" @click="openDialog('add')">新增</el-button>
+          </slot>
+          <slot name="action-right"></slot>
+        </div>
       </div>
     </div>
 
-    <el-table :data="tableData" v-loading="loading" :element-loading-text="props.loadingText"
-              :element-loading-background="props.loadingBackground" @selection-change="handleSelectionChange"
-              v-bind="$attrs"
-              style="width: 100%; margin-bottom: 1.5rem">
-      <el-table-column v-if="props.showSelectionColumn" type="selection" width="55" fixed/>
-      <el-table-column v-if="props.showIndexColumn" type="index" label="序号" width="70" fixed/>
+    <div class="table-content-wrapper">
+      <el-table
+          :data="tableData"
+          v-loading="loading"
+          :element-loading-text="props.loadingText"
+          :element-loading-background="props.loadingBackground"
+          @selection-change="handleSelectionChange"
+          v-bind="$attrs"
 
-      <template v-for="column in props.columns" :key="column.prop">
-        <el-table-column
-            :prop="column.prop"
-            :label="column.label"
-            :width="column.width"
-            :sortable="column.sortable || false"
-            v-bind="column.attrs"
-        >
-          <template #header>
-            <TableHeaderWithTooltip v-if="column.headerTooltip" :label="column.label"/>
-            <span v-else>{{ column.label }}</span>
-          </template>
+          height="100%"
 
-          <template v-if="column.slot" #default="scope">
-            <slot :name="column.slot" :row="scope.row"></slot>
-          </template>
-        </el-table-column>
-      </template>
-
-      <template v-for="column in props.columns" :key="column.prop">
-        <el-table-column
-            :prop="column.prop"
-            :label="column.label"
-            :width="column.width"
-            :sortable="column.sortable || false"
-            v-bind="column.attrs"
-        >
-          <template v-if="column.slot" #default="scope">
-            <slot :name="column.slot" :row="scope.row"></slot>
-          </template>
-        </el-table-column>
-      </template>
-
-      <el-table-column v-if="props.showActionsColumn" label="操作" :width="actionsColumnWidth">
-        <template #default="scope">
-          <div v-if="scope.row" class="flex items-center gap-x-2">
-
-            <slot v-if="$slots.actions" name="actions" :row="scope.row"></slot>
-
-            <template v-else>
-              <slot name="action-before-edit" :row="scope.row"></slot>
-
-              <el-button v-if="props.showEditButton" size="small" type="primary" link
-                         @click="openDialog('edit', scope.row)">编辑
-              </el-button>
-
-              <el-popconfirm v-if="props.showDeleteButton" title="确定要删除这条数据吗?"
-                             @confirm="handleDelete([scope.row.id])" confirm-button-text="确定"
-                             cancel-button-text="取消" width="200">
-                <template #reference>
-                  <el-button size="small" type="danger" link>删除</el-button>
-                </template>
-              </el-popconfirm>
-
-              <slot name="action-after-delete" :row="scope.row"></slot>
+          style="width: 100%;"
+      >
+        <el-table-column v-if="props.showSelectionColumn" type="selection" width="55" fixed/>
+        <el-table-column v-if="props.showIndexColumn" type="index" label="序号" width="70" fixed/>
+        <template v-for="column in props.columns" :key="column.prop">
+          <el-table-column
+              :prop="column.prop"
+              :label="column.label"
+              :width="column.width"
+              :sortable="column.sortable || false"
+              v-bind="column.attrs"
+          >
+            <template #header>
+              <TableHeaderWithTooltip v-if="column.headerTooltip" :label="column.label"/>
+              <span v-else>{{ column.label }}</span>
             </template>
 
-          </div>
+            <template v-if="column.slot" #default="scope">
+              <slot :name="column.slot" :row="scope.row"></slot>
+            </template>
+          </el-table-column>
         </template>
-      </el-table-column>
-    </el-table>
+        <el-table-column v-if="props.showActionsColumn" label="操作" :width="actionsColumnWidth">
+          <template #default="scope">
+            <div v-if="scope.row" class="flex items-center gap-x-2">
+              <slot v-if="$slots.actions" name="actions" :row="scope.row"></slot>
+              <template v-else>
+                <slot name="action-before-edit" :row="scope.row"></slot>
+                <el-button v-if="props.showEditButton" size="small" type="primary" link
+                           @click="openDialog('edit', scope.row)">编辑
+                </el-button>
+                <el-popconfirm v-if="props.showDeleteButton" title="确定要删除这条数据吗?"
+                               @confirm="handleDelete([scope.row.id])" confirm-button-text="确定"
+                               cancel-button-text="取消" width="200">
+                  <template #reference>
+                    <el-button size="small" type="danger" link>删除</el-button>
+                  </template>
+                </el-popconfirm>
+                <slot name="action-after-delete" :row="scope.row"></slot>
+              </template>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
-    <div v-if="props.showPagination && total > 0" class="flex justify-end">
+    <div v-if="props.showPagination && total > 0" class="pagination-wrapper flex justify-end mt-2">
       <el-pagination
           v-model:current-page="searchForm.pageNum"
           v-model:page-size="searchForm.pageSize"
@@ -111,19 +102,6 @@
 
     <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true"
                :custom-class="dialogClass">
-      <div v-loading="dialog.loading">
-        <slot name="dialog-form-content" :form-data="dialog.data" :mode="dialog.mode">
-          <dynamic-form v-if="props.dialogFormConfig.length > 0" :form-config="finalDialogFormConfig"
-                        v-model="dialog.data" :ref="el => dialog.formRef = el" :rules="props.dialogFormRules"
-                        label-width="80px"/>
-        </slot>
-      </div>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="dialog.visible = false">取消</el-button>
-          <el-button type="primary" @click="handleDialogSubmit" :loading="dialog.submitting">确定</el-button>
-        </div>
-      </template>
     </el-dialog>
   </div>
 </template>
@@ -600,5 +578,46 @@ defineExpose({
   width: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.crud-table-container {
+  /* 1. 设置为 Flexbox 容器，并指定垂直方向 */
+  display: flex;
+  flex-direction: column;
+
+  /* 2. 关键：让组件自身高度占满其父容器 */
+  height: 100%;
+  width: 100%;
+
+  /* 3. 防止 flex 子项在内容溢出时撑开自身 (处理横向和纵向溢出) */
+  min-width: 0;
+  min-height: 0;
+
+  /* 4. 确保所有内容都在这个容器内 */
+  overflow: hidden;
+}
+
+.search-section-wrapper {
+  /* 搜索区高度由内容决定，不允许被压缩 */
+  flex-shrink: 0;
+}
+
+.table-content-wrapper {
+  /* 关键：让表格包装器占据所有剩余的垂直空间 */
+  flex: 1;
+
+  /* 关键：同样需要这个来防止子元素（el-table）在某些情况下溢出 */
+  min-height: 0;
+  overflow: hidden; /* 确保 el-table 不会溢出这个容器 */
+}
+
+.pagination-wrapper {
+  /* 分页区高度由内容决定，不允许被压缩 */
+  flex-shrink: 0;
+
+  /* 为分页器添加一些内边距，使其与表格有间距 */
+  padding-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

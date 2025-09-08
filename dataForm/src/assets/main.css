@@ -12,14 +12,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #2c3e50;
-  padding: 1rem;
 }
 
-@media (min-width: 768px) {
-  #app {
-    padding: 1.5rem;
-  }
-}
 
 .crud-container {
   transition: box-shadow 0.3s ease-in-out;
@@ -121,9 +115,10 @@ body {
   box-shadow: none !important;
   border: 1px solid var(--large-screen-border-color);
 }
-.theme-large-screen .el-input__inner {
-  color: var(--large-screen-text-color);
-}
+
+/*.theme-large-screen .el-input__inner {*/
+/*  color: var(--large-screen-text-color);*/
+/*}*/
 
 /* Button styles */
 .theme-large-screen .el-button--primary,

@@ -1,50 +1,42 @@
 <template>
-  <div class="p-4 space-y-12">
-    <section>
-      <h2 class="text-2xl font-bold text-gray-700 mb-4 border-l-4 border-green-500 pl-3">案例二：高级定制与生命周期钩子</h2>
-      <div class="bg-white rounded-xl shadow-lg p-6" style="height: 545px">
-        <crud-table
-            ref="crudTableRefDefault"
-            theme="large-screen"
-            :border="true"
-            :api-url-query="'/api/system/mysql/getYrosObservationData'"
-            :api-url-detail="'/api/system/paper'"
-            :api-url-create="'/api/system/paper'"
-            :api-url-update="'/api/system/paper'"
-            :api-url-delete="'/api/system/paper'"
-            actionsColumnWidth="150"
-            row-key="id"
-            :columns="advancedColumns"
-            :show-search-action-buttons="false"
-            :initial-search-form="{ startTime: 1744446400000, endTime: 1755482400000, pageNum: 1, pageSize: 10 }"
-            :dialog-form-config="advancedFormConfig"
-        >
-          <!--   表格的检索条件   -->
-          <template #query-conditions="{ searchForm }">
-            <el-form-item label="论文标题" class="flex items-center">
-              <el-input v-model="searchForm.paperName" placeholder="输入论文标题搜索" clearable/>
-            </el-form-item>
-          </template>
-          <template #coverImageSlot="{ row }">
-            <el-image
-                v-if="row.imageUrl"
-                style="width: 80px; height: 80px; border-radius: 4px;"
-                :src="row.imageUrl"
-                :preview-src-list="[row.imageUrl]"
-                fit="cover"
-                lazy
-            >
-              <template #error>
-                <div class="image-slot-error">
-                  加载失败
-                </div>
-              </template>
-            </el-image>
-            <span v-else>无图片123</span>
-          </template>
-        </crud-table>
-      </div>
-    </section>
+  <div class="rounded-xl " style="height: 545px; background-color: #666">
+    <crud-table
+        ref="crudTableRefDefault"
+        :border="true"
+        :showSelectionColumn="false"
+        :searchForm="dialogFormConfig"
+        :api-url-query="'/api/system/mysql/getYrosObservationData'"
+        :showEditButton="false"
+        :showIndexColumn="false"
+        :showDeleteButton="true"
+        :paginationLayout="'total, prev, pager, next, jumper'"
+        :showNewBtn="false"
+        :showActionsColumn="false"
+        actionsColumnWidth="150"
+        row-key="id"
+        :columns="advancedColumns"
+        :initial-search-form="initialSearch">
+      <template #query-conditions="{ searchForm }">
+        <el-form-item label="开始时间">
+          <el-date-picker
+              class="dark"
+              v-model="searchForm.startTime"
+              type="datetime"
+              value-format="x"
+              placeholder="选择开始日期时间"
+          />
+        </el-form-item>
+        <el-form-item label="结束时间">
+          <el-date-picker
+              class="dark"
+              v-model="searchForm.endTime"
+              type="datetime"
+              value-format="x"
+              placeholder="选择结束日期时间"
+          />
+        </el-form-item>
+      </template>
+    </crud-table>
   </div>
 </template>
 
@@ -57,13 +49,25 @@ import type { FormRules } from 'element-plus';
 // --- 通用引用 ---
 const advancedCrudTable = ref<any>(null);
 
+const dialogFormConfig = ref([
+  {type: 'input', prop: 'startTime', label: '开始时间',   componentProps: {placeholder: '请选择开始时间'}},
+  {type: 'input', prop: 'endTime',  label: '结束时间', componentProps: {placeholder: '请选择结束时间'}},
+]);
+
+const initialSearch = ref({
+  startTime: 1756954074865,
+  endTime: 1757040474865,
+  pageNum: 1,
+  pageSize: 10,
+});
+
 // --- 案例二：高级配置 ---
 const advancedColumns = ref([
   {prop: 'obsv_time', label: '观测时间', headerTooltip: true, attrs: {
-      'max-width': '200px',
+      'width': '200px',
     }},
-  {prop: 'ea', label: '总辐射辐照度(W/m2)', attrs: {
-      'min-width': '200px'
+  {prop: 'ea', label: '总辐射辐照度(W/m2)',headerTooltip: true, attrs: {
+      'width': '50px'
     }},
   {prop: 'eb', label: '总辐射辐照度分钟最大值(W/m2)', attrs: {
       'min-width': '200px'
