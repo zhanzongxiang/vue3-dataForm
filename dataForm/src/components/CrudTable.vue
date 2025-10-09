@@ -9,21 +9,21 @@
           <slot name="query-conditions" :search-form="searchForm"></slot>
           <el-form-item class="!mr-0 flex-shrink-0">
             <div class="flex items-center gap-x-2">
-              <slot name="query-left"></slot>
+              <slot name="query-left" :search-form="searchForm"></slot>
               <template v-if="props.showSearchActionButtons">
                 <el-button type="primary" @click="handleSearch" :loading="loading">搜索</el-button>
                 <el-button @click="handleClearSearch">清空</el-button>
               </template>
-              <slot name="query-right"></slot>
+              <slot name="query-right" :search-form="searchForm"></slot>
             </div>
           </el-form-item>
         </el-form>
         <div class="flex items-center gap-x-3 action-buttons flex-shrink-0">
           <slot name="action-left" :selections="selections"></slot>
-          <slot name="add-button-content">
+          <slot name="add-button-content" :selections="selections">
             <el-button v-if="props.showNewBtn" type="success" @click="openDialog('add')">新增</el-button>
           </slot>
-          <slot name="action-right"></slot>
+          <slot name="action-right" :selections="selections"></slot>
         </div>
       </div>
     </div>
@@ -52,7 +52,7 @@
               v-bind="column.attrs"
           >
             <template #header>
-              <TableHeaderWithTooltip v-if="column.headerTooltip" :label="column.label"/>
+              <TableHeaderWithTooltip v-if="column.headerTooltip" :label="column.label" :placement="column.placement"/>
               <span v-else>{{ column.label }}</span>
             </template>
 
@@ -167,13 +167,21 @@ const props = defineProps({
 
   // 生命周期钩子函数，允许在特定操作前后注入自定义逻辑。
   onBeforeQuery: {type: Function as PropType<(params: any) => Promise<any> | any>},
-  onAfterQuery: {type: Function as PropType<(data: any[]) => Promise<any[]> | any[]>},
+  onAfterQuery: {
+    type: Function as PropType<(data: any[], params: any) => Promise<any[]> | any[]>
+  },
   onBeforeOpenDialog: {type: Function as PropType<(mode: string, data?: any) => Promise<any> | any>},
   onAfterOpenDialog: {type: Function as PropType<(mode: string, data: any) => void>},
-  onBeforeSubmit: {type: Function as PropType<(data: any) => Promise<any> | any>},
+  onBeforeSubmit: {
+    type: Function as PropType<(data: any, mode: 'add' | 'edit') => Promise<any> | any>
+  },
   onAfterSubmit: {type: Function as PropType<(mode: string, data: any) => void>},
-  onBeforeDelete: {type: Function as PropType<(ids: number[]) => Promise<boolean> | boolean>},
-  onAfterDelete: {type: Function as PropType<(ids: number[]) => void>},
+  onBeforeDelete: {
+    type: Function as PropType<(ids: number[], rows: any[]) => Promise<boolean> | boolean>
+  },
+  onAfterDelete: {
+    type: Function as PropType<(ids: number[], rows: any[]) => void>
+  },
 
   // 功能开关，控制UI元素的显示/隐藏。
   showSelectionColumn: {type: Boolean, default: true},
@@ -235,7 +243,7 @@ const submit = async (mode: 'add' | 'edit', data: Record<string, any>) => {
     // 步骤 1: 运行 onBeforeSubmit 钩子
     let finalData = {...data};
     if (props.onBeforeSubmit) {
-      finalData = await props.onBeforeSubmit(finalData);
+      finalData = await props.onBeforeSubmit(finalData, mode);
     }
 
     // 步骤 2: 根据 submitAsFormData Prop 决定是否转换数据
@@ -347,7 +355,7 @@ const fetchData = async () => {
       // 允许在数据渲染前通过 onAfterQuery 钩子格式化数据
       let processedData = res.data.rows;
       if (props.onAfterQuery) {
-        processedData = await props.onAfterQuery(processedData);
+        processedData = await props.onAfterQuery(processedData, finalParams);
       }
       tableData.value = processedData;
       total.value = res.data.total;
@@ -512,9 +520,11 @@ const handleDialogSubmit = async () => {
 const handleDelete = async (ids: number[]) => {
   if (!validateUrl(props.apiUrlDelete, 'apiUrlDelete')) return;
   try {
+    const rowsToDelete = tableData.value.filter((row: any) => ids.includes(row.id));
+
     // 允许通过 onBeforeDelete 钩子进行删除前的二次确认，返回 false 可中止删除。
     if (props.onBeforeDelete) {
-      const canDelete = await props.onBeforeDelete(ids);
+      const canDelete = await props.onBeforeDelete(ids, rowsToDelete);
       if (canDelete === false) return;
     }
 
@@ -525,7 +535,7 @@ const handleDelete = async (ids: number[]) => {
 
     // 触发删除后的钩子和事件
     if (props.onAfterDelete) {
-      props.onAfterDelete(ids);
+      props.onAfterDelete(ids, rowsToDelete);
     }
     emit('delete', ids);
 

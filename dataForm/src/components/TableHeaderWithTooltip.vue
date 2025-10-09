@@ -2,7 +2,7 @@
   <span v-if="!isOverflow" ref="textRef" class="header-cell-content">
     {{ label }}
   </span>
-  <el-tooltip v-else :content="label" placement="top">
+  <el-tooltip v-else :content="label" :placement="placement || 'top'">
     <span ref="textRef" class="header-cell-content">
       {{ label }}
     </span>
@@ -17,6 +17,7 @@ import { useResizeObserver } from '@vueuse/core';
 // 接收父组件传来的表头标题
 const props = defineProps<{
   label: string;
+  placement: string;
 }>();
 
 // 创建一个 ref 来引用 DOM 元素
