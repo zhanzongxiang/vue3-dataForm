@@ -101,7 +101,39 @@
     </div>
 
     <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true"
-               :custom-class="dialogClass">
+               :custom-class="dialogClass"
+               style="display: flex; flex-direction: column; max-height: 80vh;">
+
+      <div style="overflow-y: auto; flex: 1;">
+        <slot
+            v-if="$slots['dialog-form']"
+            name="dialog-form"
+            :form-data="dialog.data"
+            :mode="dialog.mode"
+            :form-ref="(el) => { dialog.formRef = el; }"
+        >
+        </slot>
+
+        <el-skeleton :rows="5" animated v-else-if="dialog.loading"/>
+
+        <DynamicForm
+            v-else-if="!dialog.loading"
+            :ref="(el) => { dialog.formRef = el; }"
+            :model-value="dialog.data"
+            :form-config="finalDialogFormConfig"
+            :rules="props.dialogFormRules"
+            :label-width="props.dialogFormLabelWidth"
+        />
+      </div>
+
+      <template #footer>
+    <span class="dialog-footer">
+      <el-button @click="dialog.visible = false">取消</el-button>
+      <el-button type="primary" @click="handleDialogSubmit" :loading="dialog.submitting">
+        确定
+      </el-button>
+    </span>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -206,6 +238,11 @@ const props = defineProps({
   // 弹窗表单配置
   dialogFormConfig: {type: Array as () => any[], default: () => []},
   dialogFormRules: {type: Object, default: () => ({})},
+  /**
+   * @description 弹窗表单的标签宽度 (label-width)
+   * @type {String}
+   */
+  dialogFormLabelWidth: { type: String, default: 120 },
   /**
    * @description 是否以 multipart/form-data 格式提交表单。
    * 适用于需要上传文件的场景。
@@ -454,62 +491,26 @@ const openDialog = async (mode: 'add' | 'edit', dataPayload?: any) => {
  */
 const handleDialogSubmit = async () => {
   try {
-    if (dialog.formRef) await dialog.formRef.validate();
-
-    let finalData = {...dialog.data};
-    if (props.onBeforeSubmit) {
-      finalData = await props.onBeforeSubmit(finalData);
-    }
-
-    // --- 修改开始 ---
-
-    // 声明一个变量来存储最终要发送的数据
-    let dataToSend: any = finalData;
-
-    // 如果 submitAsFormData prop 为 true，则将数据转换为 FormData
-    if (props.submitAsFormData) {
-
-      const formData = new FormData();
-      for (const key in finalData) {
-        // 确保只添加对象自身的属性
-        if (Object.prototype.hasOwnProperty.call(finalData, key)) {
-          const value = finalData[key];
-          // FormData 可以处理 null, undefined, File 对象等
-          // 这里我们做个简单处理，如果值为 null 或 undefined，转换为空字符串
-          formData.append(key, value ?? '');
-        }
-      }
-      dataToSend = formData;
-      debugger
-
-    }
-
-    // --- 修改结束 ---
-
-    dialog.submitting = true;
-    if (dialog.mode === 'add') {
-      if (!validateUrl(props.apiUrlCreate, 'apiUrlCreate')) return;
-      // 使用 dataToSend 变量进行提交
-      await request.post(props.apiUrlCreate, dataToSend);
-      ElMessage.success('新增成功');
+    // 1. 校验表单
+    if (dialog.formRef) {
+      await dialog.formRef.validate(); //
     } else {
-      if (!validateUrl(props.apiUrlUpdate, 'apiUrlUpdate')) return;
-      // 使用 dataToSend 变量进行提交
-      await request.put(props.apiUrlUpdate, dataToSend);
-      ElMessage.success('更新成功');
+      console.warn('Dialog form ref is not available for validation.');
     }
 
-    if (props.onAfterSubmit) {
-      props.onAfterSubmit(dialog.mode, finalData); // 钩子函数仍然传递原始对象
-    }
-    emit('submit', {mode: dialog.mode, data: finalData}); // 事件仍然传递原始对象
+    // 2. 调用核心提交函数
+    // `submit` 函数会处理 onBeforeSubmit/onAfterSubmit 钩子,
+    // FormData 转换, API 请求, 提交状态 (submitting),
+    // 以及成功后的关闭弹窗和刷新表格。
+    await submit(dialog.mode, dialog.data); //
 
-    dialog.visible = false;
-    fetchData();
   } catch (error) {
-    console.log('Submit error or validation failed:', error);
-  } finally {
-    dialog.submitting = false;
+    // 捕获校验失败或提交失败的
+    console.log('Validation or submit error:', error);
+    // 校验失败时，validate() 会 reject
+    // 提交失败时，submit() 会 reject
+    // 此处可以根据需要添加统一的错误提示，例如:
+    // ElMessage.error('表单校验失败，请检查输入');
   }
 };
 
@@ -631,3 +632,10 @@ defineExpose({
   justify-content: flex-end;
 }
 </style>
+
+
+"id": 0,
+"variableCode": "",
+"variableName": "",
+"specialHandlerType": "",
+"handlerParams": "",
