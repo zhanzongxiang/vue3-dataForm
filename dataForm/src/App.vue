@@ -1,20 +1,24 @@
 <template>
-  <crud-table
-      :api-url-query="apiUrls.query"
-      :api-url-detail="apiUrls.detail"
-      :api-url-create="apiUrls.create"
-      :api-url-update="apiUrls.update"
-      :api-url-delete="apiUrls.delete"
-      :columns="tableColumns"
-      :dialog-form-config="formConfig"
-      :dialog-form-rules="formRules"
-  />
+  <div class="router-box relative px-8 py-6">
+    <crud-table
+        :api-url-query="apiUrls.query"
+        :api-url-detail="apiUrls.detail"
+        :api-url-create="apiUrls.create"
+        :api-url-update="apiUrls.update"
+        :api-url-delete="apiUrls.delete"
+        :columns="tableColumns"
+        :dialog-form-config="formConfig"
+        :dialog-form-rules="formRules"
+        :dialog-fullscreen="isFullScreenMode"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import CrudTable from '@/components/CrudTable.vue'; // 确保路径正确
 
+const isFullScreenMode = ref(true);
 // 1. API 地址
 const apiUrls = {
   query: '/api/user/list',
@@ -56,3 +60,14 @@ const formRules = ref({
   role: [{ required: true, message: '请选择角色', trigger: 'change' }],
 });
 </script>
+<style scoped>
+.router-box {
+  position: relative;
+  overflow: hidden;
+  width: 1640px;
+  height: 958px;
+  border-radius: 8px;
+  background: rgba(253, 253, 255, 1);
+  box-sizing: border-box;
+}
+</style>

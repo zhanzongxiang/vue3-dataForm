@@ -11,8 +11,8 @@
             <div class="flex items-center gap-x-2">
               <slot name="query-left" :search-form="searchForm"></slot>
               <template v-if="props.showSearchActionButtons">
-                <el-button type="primary" @click="handleSearch" :loading="loading">搜索</el-button>
-                <el-button @click="handleClearSearch">清空</el-button>
+                <el-button v-if="props.showSearchButton" color="#336FFF" @click="handleSearch" :loading="loading">搜索</el-button>
+                <el-button v-if="props.showClearButton" color="#336FFF" plain @click="handleClearSearch">清空</el-button>
               </template>
               <slot name="query-right" :search-form="searchForm"></slot>
             </div>
@@ -21,7 +21,7 @@
         <div class="flex items-center gap-x-3 action-buttons flex-shrink-0">
           <slot name="action-left" :selections="selections"></slot>
           <slot name="add-button-content" :selections="selections">
-            <el-button v-if="props.showNewBtn" type="success" @click="openDialog('add')">新增</el-button>
+            <el-button v-if="props.showNewBtn" color="#336FFF" @click="openDialog('add')">新增</el-button>
           </slot>
           <slot name="action-right" :selections="selections"></slot>
         </div>
@@ -100,7 +100,7 @@
       />
     </div>
 
-    <el-dialog v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true"
+    <el-dialog v-if="!props.dialogFullscreen" v-model="dialog.visible" :title="dialogTitle" :width="props.dialogWidth" :destroy-on-close="true"
                :custom-class="dialogClass"
                style="display: flex; flex-direction: column; max-height: 80vh;">
 
@@ -128,11 +128,59 @@
 
       <template #footer>
     <span class="dialog-footer">
-      <el-button @click="dialog.visible = false">取消</el-button>
-      <el-button type="primary" @click="handleDialogSubmit" :loading="dialog.submitting">
+      <el-button color="#336FFF" @click="dialog.visible = false">取消</el-button>
+      <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
         确定
       </el-button>
     </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-else
+               v-model="dialog.visible"
+               :fullscreen="true"
+               :width="props.dialogWidth"
+               :destroy-on-close="true"
+               :modal="!props.dialogFullscreen"
+               :custom-class="dialogClass"
+               :show-close="false"
+               style="display: flex; flex-direction: column; max-height: 100vh;">
+
+      <template #header>
+        <div class="flex items-center">
+          <el-button type="info" text @click="dialog.visible = false" style="margin-right: 12px;">
+            <el-icon size="20"><ArrowLeftBold /></el-icon>
+          </el-button>
+          <span class="el-dialog__title">{{ dialogTitle }}</span>
+        </div>
+      </template>
+
+      <div style="overflow-y: auto; flex: 1;">
+        <slot
+            v-if="$slots['dialog-form']"
+            name="dialog-form"
+            :form-data="dialog.data"
+            :mode="dialog.mode"
+            :form-ref="(el) => { dialog.formRef = el; }"
+        >
+        </slot>
+        <DynamicForm
+            v-else-if="!dialog.loading"
+            :ref="(el) => { dialog.formRef = el; }"
+            :model-value="dialog.data"
+            :form-config="finalDialogFormConfig"
+            :rules="props.dialogFormRules"
+            :label-width="props.dialogFormLabelWidth"
+        />
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button color="#336FFF" plain @click="dialog.visible = false">取消</el-button>
+          <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
+            确定
+          </el-button>
+        </span>
       </template>
     </el-dialog>
   </div>
@@ -141,6 +189,7 @@
 <script setup lang="ts">
 import {computed, onMounted, PropType, reactive, ref} from 'vue';
 import {ElMessage} from 'element-plus';
+import { ArrowLeftBold } from '@element-plus/icons-vue';
 import DynamicForm from './DynamicForm.vue';
 import request from '@/utils/request';
 import TableHeaderWithTooltip from './TableHeaderWithTooltip.vue';
@@ -187,6 +236,20 @@ const props = defineProps({
 
   // ✨ [新增] 控制搜索/清空按钮的显示
   showSearchActionButtons: {type: Boolean, default: true},
+
+  /**
+   * @description [✨ 新增] 单独控制“搜索”按钮的显示
+   * 必须在 showSearchActionButtons = true 时才生效
+   * @type {Boolean}
+   */
+  showSearchButton: { type: Boolean, default: true },
+
+  /**
+   * @description [✨ 新增] 单独控制“清空”按钮的显示
+   * 必须在 showSearchActionButtons = true 时才生效
+   * @type {Boolean}
+   */
+  showClearButton: { type: Boolean, default: true },
 
   // 控制新增按钮
   showNewBtn: {type: Boolean, default: true},
@@ -249,6 +312,11 @@ const props = defineProps({
    * @type {Boolean}
    */
   submitAsFormData: {type: Boolean, default: false},
+  /**
+   * @description [✨ 新增] 控制弹窗是否在组件内部全屏
+   * @type {Boolean}
+   */
+  dialogFullscreen: { type: Boolean, default: false },
 });
 
 // --- 3. 动态计算属性 (Computed) ---

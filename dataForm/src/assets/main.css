@@ -69,3 +69,11 @@ body {
 .theme-large-screen {
   color: var(--large-screen-text-color);
 }
+
+.el-modal-dialog {
+    position: absolute !important;
+}
+
+.el-overlay-dialog {
+    position: absolute !important;
+}
