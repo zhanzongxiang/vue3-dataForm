@@ -127,12 +127,17 @@
       </div>
 
       <template #footer>
-    <span class="dialog-footer">
-      <el-button color="#336FFF" @click="dialog.visible = false">取消</el-button>
-      <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
-        确定
-      </el-button>
-    </span>
+        <slot name="dialog-footer"
+              :dialog="dialog"
+              :submit="handleDialogSubmit"
+              :cancel="() => dialog.visible = false">
+          <span class="dialog-footer">
+            <el-button color="#336FFF" @click="dialog.visible = false">取消</el-button>
+            <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
+              确定
+            </el-button>
+          </span>
+        </slot>
       </template>
     </el-dialog>
 
@@ -175,12 +180,17 @@
       </div>
 
       <template #footer>
-        <span class="dialog-footer">
-          <el-button color="#336FFF" plain @click="dialog.visible = false">取消</el-button>
-          <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
-            确定
-          </el-button>
-        </span>
+        <slot name="dialog-footer"
+              :dialog="dialog"
+              :submit="handleDialogSubmit"
+              :cancel="() => dialog.visible = false">
+          <span class="dialog-footer">
+            <el-button color="#336FFF" plain @click="dialog.visible = false">取消</el-button>
+            <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
+              确定
+            </el-button>
+          </span>
+        </slot>
       </template>
     </el-dialog>
   </div>
@@ -317,6 +327,16 @@ const props = defineProps({
    * @type {Boolean}
    */
   dialogFullscreen: { type: Boolean, default: false },
+  /**
+   * @description [✨ 新增] 新增弹窗的自定义标题
+   * @type {String}
+   */
+  addDialogTitle: { type: String, default: '新增' },
+  /**
+   * @description [✨ 新增] 编辑弹窗的自定义标题
+   * @type {String}
+   */
+  editDialogTitle: { type: String, default: '编辑' },
 });
 
 // --- 3. 动态计算属性 (Computed) ---
@@ -422,7 +442,7 @@ const dialog = reactive<{
 // --- 6. 衍生的计算属性 ---
 
 // 根据 `dialog.mode` 动态计算弹窗的标题。
-const dialogTitle = computed(() => (dialog.mode === 'add' ? '新增' : '编辑'));
+const dialogTitle = computed(() => (dialog.mode === 'add' ? props.addDialogTitle : props.editDialogTitle));
 
 // 根据弹窗模式动态计算最终传递给 DynamicForm 的配置。
 const finalDialogFormConfig = computed(() => {
@@ -639,7 +659,12 @@ const handleCurrentChange = (val: number) => {
 
 // 组件挂载完成后，立即执行一次数据获取。
 onMounted(fetchData);
-
+/**
+ * @description 手动关闭弹窗
+ */
+const closeDialog = () => {
+  dialog.visible = false;
+};
 // --- 10. 暴露给父组件的方法 ---
 // 使用 defineExpose 使父组件可以通过 ref 调用这些内部方法，实现更灵活的交互。
 defineExpose({
@@ -647,7 +672,8 @@ defineExpose({
   search: handleSearch, // 按当前条件搜索
   handleDelete,         // 手动触发删除
   openDialog,           // 手动打开弹窗
-  submit                // 手动提交
+  submit,                // 手动提交
+  closeDialog,         //关闭弹窗
 });
 </script>
 
