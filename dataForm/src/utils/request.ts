@@ -2,11 +2,18 @@ import axios from 'axios';
 // ✨ 新增 ElMessageBox 的导入，用于处理 token 失效等需要用户确认的场景
 import { ElMessage, ElMessageBox } from 'element-plus';
 
+import qs from 'qs';
+
 // 创建 axios 实例
 const service = axios.create({
     // VITE_APP_BASE_API 是在 .env 文件中定义的基础 URL
     baseURL: import.meta.env.VITE_APP_BASE_API || '',
     timeout: 10000, // 请求超时时间
+    paramsSerializer: {
+        serialize: (params) => {
+            return qs.stringify(params, { arrayFormat: 'repeat' });
+        }
+    }
 });
 
 // 请求拦截器 (保持不变)

@@ -10,6 +10,7 @@
         :dialog-form-config="formConfig"
         :dialog-form-rules="formRules"
         :dialog-fullscreen="isFullScreenMode"
+        :initial-search-form="initialSearch"
     />
   </div>
 </template>
@@ -21,20 +22,33 @@ import CrudTable from '@/components/CrudTable.vue'; // 确保路径正确
 const isFullScreenMode = ref(true);
 // 1. API 地址
 const apiUrls = {
-  query: '/api/user/list',
+  query: '/api/system/formula/management/level1WithAuditStatus',
   detail: '/api/user/detail',
   create: '/api/user/create',
   update: '/api/user/update',
   delete: '/api/user/delete',
 };
 
+const initialSearch = ref({
+  auditStatusList: [2,3],  // auditStatus: 2,
+  projectPhase: 0,
+  pageNum: 1,
+  pageSize: 10,
+});
+
+const onAfterQuery  = (data)=>{
+  debugger
+}
+
 // 2. 表格列配置
 const tableColumns = ref([
-  { prop: 'username', label: '用户名', width: 150 },
-  { prop: 'nickname', label: '昵称', width: 150 },
-  { prop: 'email', label: '邮箱' },
-  { prop: 'role', label: '角色', width: 100 },
-  { prop: 'createTime', label: '创建时间', width: 180 },
+  { prop: 'year', label: '数据年份', width: 300 },
+  { prop: 'dataDate', label: '成果日期' },
+  { prop: 'name', label: '成果名称' },
+  { prop: 'type', label: '成果类型' },
+  { prop: 'description', label: '成果描述', slot: 'startDate-cell' },
+  { prop: 'completedPersonnel', label: '完成人员' },
+  { prop: 'createdTime', label: '创建时间' },
 ]);
 
 // 3. 弹窗表单配置 (使用 DynamicForm)

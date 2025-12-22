@@ -67,6 +67,9 @@
               <slot v-if="$slots.actions" name="actions" :row="scope.row"></slot>
               <template v-else>
                 <slot name="action-before-edit" :row="scope.row"></slot>
+                <el-button v-if="props.showViewButton" size="small" type="success" link
+                           @click="openDialog('view', scope.row)">查看
+                </el-button>
                 <el-button v-if="props.showEditButton" size="small" type="primary" link
                            @click="openDialog('edit', scope.row)">编辑
                 </el-button>
@@ -110,7 +113,7 @@
             name="dialog-form"
             :form-data="dialog.data"
             :mode="dialog.mode"
-            :form-ref="(el) => { dialog.formRef = el; }"
+            :form-ref="(el:any) => { dialog.formRef = el; }"
         >
         </slot>
 
@@ -123,6 +126,7 @@
             :form-config="finalDialogFormConfig"
             :rules="props.dialogFormRules"
             :label-width="props.dialogFormLabelWidth"
+            :disabled="dialog.mode === 'view'"
         />
       </div>
 
@@ -166,7 +170,7 @@
             name="dialog-form"
             :form-data="dialog.data"
             :mode="dialog.mode"
-            :form-ref="(el) => { dialog.formRef = el; }"
+            :form-ref="(el:any) => { dialog.formRef = el; }"
         >
         </slot>
         <DynamicForm
@@ -176,6 +180,7 @@
             :form-config="finalDialogFormConfig"
             :rules="props.dialogFormRules"
             :label-width="props.dialogFormLabelWidth"
+            :disabled="dialog.mode === 'view'"
         />
       </div>
 
@@ -186,7 +191,7 @@
               :cancel="() => dialog.visible = false">
           <span class="dialog-footer">
             <el-button color="#336FFF" plain @click="dialog.visible = false">取消</el-button>
-            <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
+            <el-button v-if="dialog.mode !== 'view'" color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
               确定
             </el-button>
           </span>
@@ -197,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, PropType, reactive, ref} from 'vue';
+import {computed, onMounted, PropType, reactive, ref, watch, toRaw} from 'vue';
 import {ElMessage} from 'element-plus';
 import { ArrowLeftBold } from '@element-plus/icons-vue';
 import DynamicForm from './DynamicForm.vue';
@@ -206,7 +211,7 @@ import TableHeaderWithTooltip from './TableHeaderWithTooltip.vue';
 
 // --- 1. 组件事件定义 ---
 // 定义组件向外触发的自定义事件，允许父组件监听这些关键操作的完成时机。
-const emit = defineEmits(['open-dialog', 'submit', 'delete']);
+const emit = defineEmits(['open-dialog', 'submit', 'delete', 'update:initialSearchForm']);
 
 // --- 2. 组件属性 (Props) 定义 ---
 // 定义组件接收的所有外部参数，这是组件配置和行为定制的核心。
@@ -294,6 +299,7 @@ const props = defineProps({
   showActionsColumn: {type: Boolean, default: true},
   showEditButton: {type: Boolean, default: true},
   showDeleteButton: {type: Boolean, default: true},
+  showViewButton: {type: Boolean, default: false},
 
   // UI 定制化配置
   actionsColumnWidth: {type: [String, Number], default: 120},
@@ -363,7 +369,11 @@ const validateUrl = (url: string | undefined, propName: string): boolean => {
 };
 
 // [新增] 抽离出核心提交逻辑，并设置为 async
-const submit = async (mode: 'add' | 'edit', data: Record<string, any>) => {
+const submit = async (mode: 'add' | 'edit' | 'view', data: Record<string, any>) => {
+  if (mode === 'view') {
+    return Promise.resolve();
+  }
+
   try {
     // 步骤 1: 运行 onBeforeSubmit 钩子
     let finalData = {...data};
@@ -422,7 +432,7 @@ const submit = async (mode: 'add' | 'edit', data: Record<string, any>) => {
 // 搜索表单的数据模型，使用 `initialSearchForm` 进行初始化，并包含分页参数。
 const searchForm = reactive({pageNum: 1, pageSize: 10, ...props.initialSearchForm});
 // 存储从 API 获取的表格数据。
-const tableData = ref([]);
+const tableData = ref<any[]>([]);
 // 总记录数，用于分页组件。
 const total = ref(0);
 // 控制表格加载状态的 loading 指示器。
@@ -434,7 +444,7 @@ const dialog = reactive<{
   visible: boolean;
   loading: boolean;
   submitting: boolean;
-  mode: 'add' | 'edit';
+  mode: 'add' | 'edit' | 'view';
   data: Record<string, any>;
   formRef: any; // 存储 DynamicForm 组件的实例，用于调用其 validate 方法。
 }>({visible: false, loading: false, submitting: false, mode: 'add', data: {}, formRef: null});
@@ -462,37 +472,64 @@ const finalDialogFormConfig = computed(() => {
  * @description 核心数据获取方法，负责请求列表数据并更新表格。
  */
 const fetchData = async () => {
-  // 校验查询 API 是否已配置
   if (!validateUrl(props.apiUrlQuery, 'apiUrlQuery')) return;
   loading.value = true;
   try {
-    // 允许在请求前通过 onBeforeQuery 钩子修改参数
     let finalParams = {...searchForm};
     if (props.onBeforeQuery) {
       finalParams = await props.onBeforeQuery(finalParams);
     }
 
-    // 发起 GET 请求
     const res: any = await request.get(props.apiUrlQuery, {params: finalParams});
 
-    // 校验返回数据格式是否符合预期 { data: { rows: [], total: number } }
-    if (res && res.data && Array.isArray(res.data.rows) && typeof res.data.total === 'number') {
-      // 允许在数据渲染前通过 onAfterQuery 钩子格式化数据
-      let processedData = res.data.rows;
+    // --- ✨ 改造开始：标准化数据提取逻辑 ---
+    let rawRows: any[] = [];
+    let rawTotal: number = 0;
+    let isValidResponse = false;
+
+    // 情况 A: 标准结构 { data: { rows: [], total: 10 } }
+    if (res?.data && Array.isArray(res.data.rows)) {
+      rawRows = res.data.rows;
+      // 如果没有 total 字段，就用数组长度兜底
+      rawTotal = typeof res.data.total === 'number' ? res.data.total : rawRows.length;
+      isValidResponse = true;
+    }
+    // 情况 B: 简单数组结构 { data: [ ... ] } (您当前的情况)
+    else if (Array.isArray(res?.data)) {
+      rawRows = res.data;
+      rawTotal = res.data.length;
+      isValidResponse = true;
+    }
+    // 情况 C: 某些接口把数组直接放在根对象 (极少见，视 axios 配置而定)
+    else if (Array.isArray(res)) {
+      rawRows = res;
+      rawTotal = res.length;
+      isValidResponse = true;
+    }
+
+    // --- 数据处理与赋值 ---
+    if (isValidResponse) {
+      // 1. 执行生命周期钩子
       if (props.onAfterQuery) {
-        processedData = await props.onAfterQuery(processedData, finalParams);
+        // 这里的 rawRows 就是您的数组，finalParams 是查询参数
+        rawRows = await props.onAfterQuery(rawRows, finalParams);
       }
-      tableData.value = processedData;
-      total.value = res.data.total;
+
+      // 2. 赋值给表格
+      tableData.value = rawRows;
+      total.value = rawTotal;
     } else {
-      console.warn('API response is not in the expected { data: { rows: [], total: 0 } } format.');
+      console.warn('未识别的 API 响应格式，请检查 fetchData 中的兼容逻辑。', res);
       tableData.value = [];
       total.value = 0;
     }
+    // --- ✨ 改造结束 ---
+
   } catch (error) {
     console.error("Fetch data failed:", error);
+    tableData.value = [];
+    total.value = 0;
   } finally {
-    // 无论成功或失败，都关闭 loading 状态
     loading.value = false;
   }
 };
@@ -500,7 +537,13 @@ const fetchData = async () => {
 /**
  * @description 处理“搜索”按钮点击事件，重置到第一页并重新获取数据。
  */
-const handleSearch = () => {
+const handleSearch = (params?: any) => {
+  if (params) {
+    Object.assign(searchForm, params);
+  } else {
+    // 2. 否则，强制同步 props 中的最新配置，防止 watcher 滞后
+    Object.assign(searchForm, props.initialSearchForm);
+  }
   searchForm.pageNum = 1;
   fetchData();
 };
@@ -531,7 +574,7 @@ const handleSelectionChange = (val: any[]) => {
  * @param {'add' | 'edit'} mode - 弹窗模式。
  * @param {object} [rowData] - (编辑模式下) 当前行的数据。
  */
-const openDialog = async (mode: 'add' | 'edit', dataPayload?: any) => {
+const openDialog = async (mode: 'add' | 'edit' | 'view', dataPayload?: any) => {
   // 1. 定义初始数据变量
   let initialData;
   if (mode === 'add') {
@@ -552,7 +595,7 @@ const openDialog = async (mode: 'add' | 'edit', dataPayload?: any) => {
   dialog.visible = true;
 
   // 3. 后续逻辑基本不变
-  if (mode === 'edit') {
+  if (mode === 'edit' || mode === 'view') {
     if (!validateUrl(props.apiUrlDetail, 'apiUrlDetail')) return;
     dialog.loading = true;
     try {
@@ -578,6 +621,7 @@ const openDialog = async (mode: 'add' | 'edit', dataPayload?: any) => {
  * @description 处理弹窗中“确定”按钮的点击事件，负责表单校验和数据提交。
  */
 const handleDialogSubmit = async () => {
+  if (dialog.mode === 'view') return;
   try {
     // 1. 校验表单
     if (dialog.formRef) {
@@ -665,6 +709,28 @@ onMounted(fetchData);
 const closeDialog = () => {
   dialog.visible = false;
 };
+
+// 【新增】监听内部 searchForm 变化，并通过 v-model 机制同步回父组件
+watch(
+    searchForm,
+    (newVal) => {
+      // 使用 toRaw 获取原始对象，避免不必要的响应式开销，也可以直接传 newVal
+      emit('update:initialSearchForm', { ...toRaw(newVal) });
+    },
+    { deep: true }
+);
+
+// 【新增】(可选) 监听父组件传入的 initialSearchForm 变化，同步更新内部 searchForm
+// 场景：父组件点击了一个“重置为默认”按钮，修改了传入的 prop，内部也需要变
+watch(
+    () => props.initialSearchForm,
+    (newVal) => {
+      // 使用 Object.assign 保持响应式引用不变
+      Object.assign(searchForm, newVal);
+    },
+    { deep: true }
+);
+
 // --- 10. 暴露给父组件的方法 ---
 // 使用 defineExpose 使父组件可以通过 ref 调用这些内部方法，实现更灵活的交互。
 defineExpose({
