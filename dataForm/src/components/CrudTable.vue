@@ -67,13 +67,13 @@
               <slot v-if="$slots.actions" name="actions" :row="scope.row"></slot>
               <template v-else>
                 <slot name="action-before-edit" :row="scope.row"></slot>
-                <el-button v-if="props.showViewButton" size="small" type="success" link
+                <el-button v-if="hasPermission(scope.row, 'view', props.showViewButton)" size="small" type="success" link
                            @click="openDialog('view', scope.row)">查看
                 </el-button>
-                <el-button v-if="props.showEditButton" size="small" type="primary" link
+                <el-button v-if="hasPermission(scope.row, 'edit', props.showEditButton)" size="small" type="primary" link
                            @click="openDialog('edit', scope.row)">编辑
                 </el-button>
-                <el-popconfirm v-if="props.showDeleteButton" title="确定要删除这条数据吗?"
+                <el-popconfirm v-if="hasPermission(scope.row, 'delete', props.showDeleteButton)" title="确定要删除这条数据吗?"
                                @confirm="handleDelete([scope.row.id])" confirm-button-text="确定"
                                cancel-button-text="取消" width="200">
                   <template #reference>
@@ -118,16 +118,16 @@
         </slot>
 
         <el-skeleton :rows="5" animated v-else-if="dialog.loading"/>
-
-        <DynamicForm
-            v-else-if="!dialog.loading"
-            :ref="(el) => { dialog.formRef = el; }"
-            :model-value="dialog.data"
-            :form-config="finalDialogFormConfig"
-            :rules="props.dialogFormRules"
-            :label-width="props.dialogFormLabelWidth"
-            :disabled="dialog.mode === 'view'"
-        />
+        <div v-else-if="!dialog.loading" style="max-width: 700px; width: 100%; margin: 0 auto;">
+          <DynamicForm
+              :ref="(el) => { dialog.formRef = el; }"
+              :model-value="dialog.data"
+              :form-config="finalDialogFormConfig"
+              :rules="props.dialogFormRules"
+              :label-width="props.dialogFormLabelWidth"
+              :disabled="dialog.mode === 'view'"
+          />
+        </div>
       </div>
 
       <template #footer>
@@ -135,12 +135,12 @@
               :dialog="dialog"
               :submit="handleDialogSubmit"
               :cancel="() => dialog.visible = false">
-          <span class="dialog-footer">
+          <div style="max-width: 700px; width: 100%; margin: 0 auto; display: flex; justify-content: flex-end; gap: 12px;">
             <el-button color="#336FFF" @click="dialog.visible = false">取消</el-button>
             <el-button color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
               确定
             </el-button>
-          </span>
+          </div>
         </slot>
       </template>
     </el-dialog>
@@ -173,15 +173,16 @@
             :form-ref="(el:any) => { dialog.formRef = el; }"
         >
         </slot>
-        <DynamicForm
-            v-else-if="!dialog.loading"
-            :ref="(el) => { dialog.formRef = el; }"
-            :model-value="dialog.data"
-            :form-config="finalDialogFormConfig"
-            :rules="props.dialogFormRules"
-            :label-width="props.dialogFormLabelWidth"
-            :disabled="dialog.mode === 'view'"
-        />
+        <div v-else-if="!dialog.loading" style="width: 700px; margin: 0 auto">
+          <DynamicForm
+              :ref="(el) => { dialog.formRef = el; }"
+              :model-value="dialog.data"
+              :form-config="finalDialogFormConfig"
+              :rules="props.dialogFormRules"
+              :label-width="props.dialogFormLabelWidth"
+              :disabled="dialog.mode === 'view'"
+          />
+        </div>
       </div>
 
       <template #footer>
@@ -189,12 +190,12 @@
               :dialog="dialog"
               :submit="handleDialogSubmit"
               :cancel="() => dialog.visible = false">
-          <span class="dialog-footer">
+          <div style="max-width: 700px; width: 100%; margin: 0 auto; display: flex; justify-content: flex-end; gap: 12px;">
             <el-button color="#336FFF" plain @click="dialog.visible = false">取消</el-button>
             <el-button v-if="dialog.mode !== 'view'" color="#336FFF" @click="handleDialogSubmit" :loading="dialog.submitting">
               确定
             </el-button>
-          </span>
+          </div>
         </slot>
       </template>
     </el-dialog>
@@ -368,7 +369,31 @@ const validateUrl = (url: string | undefined, propName: string): boolean => {
   return true;
 };
 
-// [新增] 抽离出核心提交逻辑，并设置为 async
+/**
+ * @description 综合权限判断函数
+ * @param {object} row - 当前行数据
+ * @param {string} action - 动作标识 ('view' | 'edit' | 'delete')
+ * @param {boolean} globalSwitch - 父组件传入的全局开关 (props.showEditButton 等)
+ */
+const hasPermission = (row: any, action: string, globalSwitch: boolean) => {
+  // 1. 第一关：检查全局开关
+  // 如果父组件已经明确说了不显示 (false)，那么无论这一行有什么权限，都不显示。
+  if (!globalSwitch) {
+    return false;
+  }
+
+  // 2. 第二关：检查行级数据权限
+  // 如果后端返回了 permissions 数组，则必须包含对应动作才显示
+  if (row && Array.isArray(row.permissions)) {
+    return row.permissions.includes(action);
+  }
+
+  // 3. 兜底：全局开关是 true，且该行没有特殊的权限限制 (兼容旧数据)
+  // 此时认为该行继承全局权限，允许显示。
+  return true;
+};
+
+// 抽离出核心提交逻辑，并设置为 async
 const submit = async (mode: 'add' | 'edit' | 'view', data: Record<string, any>) => {
   if (mode === 'view') {
     return Promise.resolve();
@@ -791,11 +816,20 @@ defineExpose({
   display: flex;
   justify-content: flex-end;
 }
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #909399;
+}
 </style>
-
-
-"id": 0,
-"variableCode": "",
-"variableName": "",
-"specialHandlerType": "",
-"handlerParams": "",
