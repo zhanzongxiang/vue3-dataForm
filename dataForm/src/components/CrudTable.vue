@@ -322,7 +322,7 @@ const props = defineProps({
    * @description 弹窗表单的标签宽度 (label-width)
    * @type {String}
    */
-  dialogFormLabelWidth: { type: String, default: 120 },
+  dialogFormLabelWidth: { type: String, default: '120' },
   /**
    * @description 是否以 multipart/form-data 格式提交表单。
    * 适用于需要上传文件的场景。
@@ -485,9 +485,9 @@ const finalDialogFormConfig = computed(() => {
   if (dialog.mode === 'add') return props.dialogFormConfig.filter(item => item.prop !== 'id');
   // 编辑模式下，确保包含一个禁用的 'id' 输入框以便展示。
   const editConfig = [...props.dialogFormConfig.filter(item => item.prop !== 'id')];
-  if (!editConfig.some(i => i.prop === 'id')) {
-    editConfig.unshift({type: 'input-disabled', prop: 'id', label: '用户ID'});
-  }
+  // if (!editConfig.some(i => i.prop === 'id')) {
+  //   editConfig.unshift({type: 'input-disabled', prop: 'id', label: '用户ID'});
+  // }
   return editConfig;
 });
 
@@ -600,6 +600,7 @@ const handleSelectionChange = (val: any[]) => {
  * @param {object} [rowData] - (编辑模式下) 当前行的数据。
  */
 const openDialog = async (mode: 'add' | 'edit' | 'view', dataPayload?: any) => {
+  debugger
   // 1. 定义初始数据变量
   let initialData;
   if (mode === 'add') {
@@ -625,7 +626,7 @@ const openDialog = async (mode: 'add' | 'edit' | 'view', dataPayload?: any) => {
     dialog.loading = true;
     try {
       const res: any = await request.get(props.apiUrlDetail + "/" + initialData.id.toString());
-      dialog.data = res.data.data;
+      dialog.data = res.data;
     } finally {
       dialog.loading = false;
       if (props.onAfterOpenDialog) {
