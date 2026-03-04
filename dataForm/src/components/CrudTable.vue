@@ -531,6 +531,12 @@ const fetchData = async () => {
       rawTotal = res.length;
       isValidResponse = true;
     }
+    // 情况 D: 直接在响应根对象包含 rows 和 total (适配您最新的数据格式)
+    else if (res && Array.isArray(res.rows)) {
+      rawRows = res.rows;
+      rawTotal = typeof res.total === 'number' ? res.total : rawRows.length;
+      isValidResponse = true;
+    }
 
     // --- 数据处理与赋值 ---
     if (isValidResponse) {
