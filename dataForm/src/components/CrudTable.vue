@@ -20,6 +20,13 @@
         </el-form>
         <div class="flex items-center gap-x-3 action-buttons flex-shrink-0">
           <slot name="action-left" :selections="selections"></slot>
+          <el-button
+              v-if="props.apiUrlExport && props.exportPosition === 'top'"
+              color="#336FFF" plain
+              @click="handleExport"
+              :loading="exportLoading">
+            导出
+          </el-button>
           <slot name="add-button-content" :selections="selections">
             <el-button v-if="props.showNewBtn" color="#336FFF" @click="openDialog('add')">新增</el-button>
           </slot>
@@ -88,7 +95,22 @@
       </el-table>
     </div>
 
-    <div v-if="props.showPagination && total > 0" class="pagination-wrapper flex justify-end mt-2">
+    <div v-if="props.showPagination && total > 0" class="pagination-wrapper flex justify-end items-center mt-2 gap-x-4">
+      <el-button
+          v-if="props.apiUrlExport && props.exportPosition === 'bottom'"
+          type="success"
+          link
+          @click="handleExport"
+          :loading="exportLoading"
+          style="font-size: 14px; padding: 0;"
+      >
+        <template #icon>
+          <svg viewBox="0 0 1024 1024" width="16" height="16" fill="currentColor">
+            <path d="M853.333 298.667v554.666c0 35.307-28.693 64-64 64H234.667c-35.307 0-64-28.693-64-64V170.667c0-35.307 28.693-64 64-64h426.666L853.333 298.667zM661.333 106.667v192h192L661.333 106.667zM384 469.333l85.333 128-85.333 128h85.333l42.667-85.333 42.667 85.333h85.333l-85.333-128 85.333-128h-85.333L512 554.667l-42.667-85.334H384z"/>
+          </svg>
+        </template>
+        导出列表
+      </el-button>
       <el-pagination
           v-model:current-page="searchForm.pageNum"
           v-model:page-size="searchForm.pageSize"
@@ -315,6 +337,17 @@ const props = defineProps({
   paginationSmall: {type: Boolean, default: false},
   paginationHideOnSinglePage: {type: Boolean, default: false},
 
+  /**
+   * @description 导出接口地址。如果有值，则自动显示导出按钮
+   * @type {String}
+   */
+  apiUrlExport: { type: String, default: '' },
+  /**
+   * @description  导出按钮位置。'top' (顶部新增旁) | 'bottom' (底部分页旁)
+   * @type {String}
+   */
+  exportPosition: { type: String, default: 'top' },
+
   // 弹窗表单配置
   dialogFormConfig: {type: Array as () => any[], default: () => []},
   dialogFormRules: {type: Object, default: () => ({})},
@@ -352,6 +385,45 @@ const props = defineProps({
 const wrapperClass = computed(() => ['crud-table-wrapper', `theme-${props.theme}`, props.customClass]);
 // 为大屏主题的弹窗动态添加特定的 CSS 类名。
 const dialogClass = computed(() => props.theme === 'large-screen' ? 'large-screen-dialog' : '');
+
+// --- 内置导出逻辑 ---
+const exportLoading = ref(false);
+
+const handleExport = async () => {
+  if (!props.apiUrlExport) return;
+  exportLoading.value = true;
+  try {
+    // 剔除分页参数，因为通常导出是全量筛选数据
+    const { pageNum, pageSize, ...exportParams } = searchForm;
+
+    const res = await request.get(props.apiUrlExport, {
+      params: exportParams,
+      responseType: 'blob' // 核心：处理二进制文件流
+    });
+
+    const blob = new Blob([res as any]);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    // 生成动态文件名 (例如：导出数据_2026-03-09.xlsx)
+    const dateStr = new Date().toLocaleDateString().replace(/\//g, '-');
+    const fileName = `导出数据_${dateStr}.xlsx`;
+
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    ElMessage.success('导出成功');
+  } catch (error) {
+    console.error("导出失败:", error);
+    ElMessage.error('导出失败，请重试');
+  } finally {
+    exportLoading.value = false;
+  }
+};
 
 // --- 4. 内部工具函数 ---
 

@@ -8,6 +8,8 @@
       :columns="tableColumns"
       :dialog-form-config="formConfig"
       :dialog-form-rules="formRules"
+      export-position="bottom"
+      :api-url-export="apiUrls.export"
   >
     <template #query-conditions="{ searchForm }">
       <el-form-item label="年份">
@@ -155,6 +157,7 @@ const apiUrls = {
   create: '/api/system/achResult/insertPaper',
   update: '/api/system/achResult/updatePaper',
   delete: '/api/system/achResult/deletePaper',
+  export: '/api/system/achResult/exportPaper',
 };
 
 // ================= 4. 表格列配置 =================
