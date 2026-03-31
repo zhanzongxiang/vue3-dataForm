@@ -10,6 +10,8 @@
       :dialog-form-rules="formRules"
       export-position="bottom"
       :api-url-export="apiUrls.export"
+      :submit-as-form-data="true"
+      view-link-column="title"
   >
     <template #query-conditions="{ searchForm }">
       <el-form-item label="年份">
@@ -152,12 +154,11 @@ onMounted(() => {
 // ================= 3. API URL 配置 =================
 
 const apiUrls = {
-  query: '/api/system/achResult/pagePaperList',
-  detail: '/api/system/achResult/loadPaper',
-  create: '/api/system/achResult/insertPaper',
-  update: '/api/system/achResult/updatePaper',
-  delete: '/api/system/achResult/deletePaper',
-  export: '/api/system/achResult/exportPaper',
+  query: '/api/system/station/panoramic/list',
+  detail: '/api/system/station/panoramic',
+  create: '/api/system/station/panoramic',
+  update: '/api/system/station/panoramic',
+  delete: '/api/system/station/panoramic',
 };
 
 // ================= 4. 表格列配置 =================
@@ -270,11 +271,16 @@ const formConfig = ref([
     span: 12
   },
   {
-    type: 'input',
-    prop: 'filePath',
-    label: '附件路径',
-    span: 24
-  }
+    type: 'upload',
+    prop: 'file',
+    label: '照片',
+    span: 24,
+    componentProps: {
+      listType: 'picture-card',
+      action: '/api/system/station/planning/files/upload',
+      limit: 1,
+    }
+  },
 ]);
 
 // ================= 6. 表单校验规则 =================

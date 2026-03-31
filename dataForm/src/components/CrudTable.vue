@@ -63,9 +63,26 @@
               <span v-else>{{ column.label }}</span>
             </template>
 
-            <template v-if="column.slot" #default="scope">
-              <slot :name="column.slot" :row="scope.row"></slot>
+            <template #default="scope">
+              <template v-if="column.slot">
+                <slot :name="column.slot" :row="scope.row"></slot>
+              </template>
+
+              <template v-else-if="props.viewLinkColumn === column.prop">
+                <el-link
+                    type="primary"
+                    :underline="false"
+                    @click="openDialog('view', scope.row)"
+                >
+                  {{ scope.row[column.prop] }}
+                </el-link>
+              </template>
+
+              <template v-else>
+                {{ scope.row[column.prop] }}
+              </template>
             </template>
+
           </el-table-column>
         </template>
         <el-table-column v-if="props.showActionsColumn" label="操作" :width="actionsColumnWidth">
@@ -239,6 +256,11 @@ const emit = defineEmits(['open-dialog', 'submit', 'delete', 'update:initialSear
 // --- 2. 组件属性 (Props) 定义 ---
 // 定义组件接收的所有外部参数，这是组件配置和行为定制的核心。
 const props = defineProps({
+  /**
+   * @description 指定哪一列的字段作为“查看详情”的链接入口（传入 prop 的名称）
+   * @type {String}
+   */
+  viewLinkColumn: { type: String, default: '' },
   /**
    * @description 组件的主题风格
    * @type {'default' | 'large-screen'}
@@ -483,10 +505,32 @@ const submit = async (mode: 'add' | 'edit' | 'view', data: Record<string, any>) 
 
     if (props.submitAsFormData) {
       const formData = new FormData();
+
       for (const key in finalData) {
         if (Object.prototype.hasOwnProperty.call(finalData, key)) {
-          const value = finalData[key];
-          formData.append(key, value ?? '');
+          // ✨ 1. 彻底剥离 Vue 的响应式代理，拿到真实的值
+          const rawValue = toRaw(finalData[key]);
+
+          // ✨ 2. 忽略空值（防止把 null 传成字符串 "null"）
+          if (rawValue === null || rawValue === undefined || rawValue === '') {
+            continue;
+          }
+
+          // ✨ 3. 精准判断：如果是原生的 File 或 Blob 对象，直接 append (这就对应截图里的 binary)
+          if (rawValue instanceof File || rawValue instanceof Blob) {
+            formData.append(key, rawValue);
+          }
+          // ✨ 4. 处理多文件数组的情况
+          else if (Array.isArray(rawValue)) {
+            rawValue.forEach(item => {
+              const rawItem = toRaw(item);
+              formData.append(key, rawItem);
+            });
+          }
+          // ✨ 5. 普通文本字段 (例如截图里的 id: 26)
+          else {
+            formData.append(key, rawValue);
+          }
         }
       }
       dataToSend = formData;
@@ -678,7 +722,6 @@ const handleSelectionChange = (val: any[]) => {
  * @param {object} [rowData] - (编辑模式下) 当前行的数据。
  */
 const openDialog = async (mode: 'add' | 'edit' | 'view', dataPayload?: any) => {
-  debugger
   // 1. 定义初始数据变量
   let initialData;
   if (mode === 'add') {
